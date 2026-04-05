@@ -2,8 +2,56 @@
 # From repo root: pyinstaller packaging/msu_maintenance.spec --noconfirm
 import os
 
-SPEC_DIR = os.path.dirname(os.path.abspath(SPECPATH))
-ROOT = os.path.dirname(SPEC_DIR)
+
+def _find_repo_root():
+    """Resolve repo root. On GitHub Actions the clone is often one level below GITHUB_WORKSPACE
+    (e.g. D:\\a\\<repo>\\<repo>\\msu_maintenance_system), so we also search subdirs and walk."""
+    launcher = os.path.join("msu_maintenance_system", "desktop_launcher.py")
+
+    def has_app(root):
+        return os.path.isfile(os.path.join(root, launcher))
+
+    ws = os.environ.get("GITHUB_WORKSPACE", "").strip()
+    if ws:
+        ws = os.path.abspath(ws)
+        if has_app(ws):
+            return ws
+        try:
+            for name in sorted(os.listdir(ws)):
+                sub = os.path.join(ws, name)
+                if os.path.isdir(sub) and has_app(sub):
+                    return sub
+        except OSError:
+            pass
+        # Odd layouts: bounded search under workspace
+        max_depth = 6
+        for dirpath, dirnames, filenames in os.walk(ws):
+            rel = os.path.relpath(dirpath, ws)
+            depth = 0 if rel == "." else rel.count(os.sep) + 1
+            if depth > max_depth:
+                dirnames[:] = []
+                continue
+            if (
+                "desktop_launcher.py" in filenames
+                and os.path.basename(dirpath) == "msu_maintenance_system"
+            ):
+                return os.path.dirname(dirpath)
+
+    d = os.path.dirname(os.path.abspath(SPECPATH))
+    for _ in range(12):
+        if has_app(d):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    raise RuntimeError(
+        "Cannot find msu_maintenance_system/desktop_launcher.py; "
+        "set GITHUB_WORKSPACE to the repo root or run pyinstaller from a normal checkout."
+    )
+
+
+ROOT = _find_repo_root()
 APP = os.path.join(ROOT, "msu_maintenance_system")
 
 block_cipher = None
