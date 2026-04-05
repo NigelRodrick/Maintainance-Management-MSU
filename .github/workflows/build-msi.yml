@@ -34,14 +34,13 @@ jobs:
 
       - name: Build MSI
         shell: pwsh
-        env:
-          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if ($env:INPUT_VERSION -and $env:INPUT_VERSION.Trim()) {
-            $ver = $env:INPUT_VERSION.Trim()
-          } else {
-            $ver = "1.0.$($env:GITHUB_RUN_NUMBER)"
+          $ver = $null
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $v = "${{ github.event.inputs.version }}"
+            if ($v -and $v.Trim()) { $ver = $v.Trim() }
           }
+          if (-not $ver) { $ver = "1.0.$($env:GITHUB_RUN_NUMBER)" }
           Write-Host "Building MSI version $ver"
           & (Join-Path $env:GITHUB_WORKSPACE 'installer\build_msi.ps1') -Version $ver
 
