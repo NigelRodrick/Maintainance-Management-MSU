@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Supervisor Dashboard - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <h1>{{ ROLE_ICONS[user_role] }} Supervisor Dashboard</h1>
+    <p>Job queue management and technician assignment</p>
+    <div class="role-indicator">
+        <span class="badge" style="background: {{ ROLE_COLORS[user_role] }}; color: white;">
+            {{ ROLE_DISPLAY_NAMES[user_role] }} Access
+        </span>
+    </div>
+</div>
+
+<!-- Queue Metrics -->
+{% if queue_metrics %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--warning-color);">⏳</div>
+        <div class="stat-content">
+            <h4>{{ queue_metrics.pending_count or 0 }}</h4>
+            <p>Pending Jobs</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--info-color);">🔧</div>
+        <div class="stat-content">
+            <h4>{{ queue_metrics.in_progress_count or 0 }}</h4>
+            <p>In Progress</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--success-color);">✅</div>
+        <div class="stat-content">
+            <h4>{{ queue_metrics.completed_count or 0 }}</h4>
+            <p>Completed</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--primary-color);">📊</div>
+        <div class="stat-content">
+            <h4>{{ queue_metrics.total_active or 0 }}</h4>
+            <p>Active Jobs</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header">
+        <h3>🚀 Supervisor Actions</h3>
+    </div>
+    <div class="card-body">
+        <div class="action-buttons" style="display: flex; gap: var(--spacing-4); flex-wrap: wrap;">
+            <a href="{{ url_for('supervisor.generate_reports') }}" class="btn btn-primary">
+                <span>📊</span> Generate Reports
+            </a>
+            <button onclick="refreshQueue()" class="btn btn-outline">
+                <span>🔄</span> Refresh Queue
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Job Queue Tabs -->
+<div class="card">
+    <div class="card-header">
+        <h3>📋 Job Queue</h3>
+        <div class="table-info">
+            <span class="badge">{{ jobs_by_status.values()|sum|length or 0 }} total jobs</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs" id="jobTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link {% if jobs_by_status.PENDING %}active{% endif %}" 
+                   id="pending-tab" data-toggle="tab" href="#pending" role="tab">
+                    ⏳ Pending ({{ jobs_by_status.PENDING|length or 0 }})
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if jobs_by_status.IN_PROGRESS %}active{% endif %}" 
+                   id="progress-tab" data-toggle="tab" href="#in-progress" role="tab">
+                    🔧 In Progress ({{ jobs_by_status.IN_PROGRESS|length or 0 }})
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if jobs_by_status.COMPLETED %}active{% endif %}" 
+                   id="completed-tab" data-toggle="tab" href="#completed" role="tab">
+                    ✅ Completed ({{ jobs_by_status.COMPLETED|length or 0 }})
+                </a>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="jobTabContent">
+            <!-- Pending Jobs -->
+            <div class="tab-pane fade {% if jobs_by_status.PENDING %}show active{% endif %}" 
+                 id="pending" role="tabpanel">
+                {% if jobs_by_status.PENDING %}
+                <div class="table-container">
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Department</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Priority</th>
+                                <th>Submitted</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in jobs_by_status.PENDING %}
+                            <tr class="job-row">
+                                <td><strong>#{{ job.id }}</strong></td>
+                                <td>{{ job.department }}</td>
+                                <td>
+                                    <div class="description-cell">
+                                        {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="category-badge category-{{ job.category|lower }}">
+                                        {{ job.category }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="priority-badge priority-{{ job.priority|lower }}">
+                                        {{ job.priority }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="date-cell">
+                                        {{ job.date_created.strftime('%b %d, %Y') if job.date_created else 'N/A' }}
+                                        <br>
+                                        <small>{{ job.date_created.strftime('%H:%M') if job.date_created else '' }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('supervisor.assign_technician', job_id=job.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            👥 Assign
+                                        </a>
+                                        <a href="{{ url_for('supervisor.job_analysis', job_id=job.id) }}" 
+                                           class="btn btn-sm btn-outline">
+                                            📊 Analysis
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">⏳</div>
+                    <h4>No pending jobs</h4>
+                    <p>All jobs have been assigned or completed.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- In Progress Jobs -->
+            <div class="tab-pane fade {% if jobs_by_status.IN_PROGRESS %}show active{% endif %}" 
+                 id="in-progress" role="tabpanel">
+                {% if jobs_by_status.IN_PROGRESS %}
+                <div class="table-container">
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Department</th>
+                                <th>Description</th>
+                                <th>Assigned To</th>
+                                <th>Priority</th>
+                                <th>Started</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in jobs_by_status.IN_PROGRESS %}
+                            <tr class="job-row">
+                                <td><strong>#{{ job.id }}</strong></td>
+                                <td>{{ job.department }}</td>
+                                <td>
+                                    <div class="description-cell">
+                                        {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ job.worker_name or 'Unassigned' }}</span>
+                                </td>
+                                <td>
+                                    <span class="priority-badge priority-{{ job.priority|lower }}">
+                                        {{ job.priority }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="date-cell">
+                                        {{ job.date_created.strftime('%b %d, %Y') if job.date_created else 'N/A' }}
+                                        <br>
+                                        <small>{{ job.date_created.strftime('%H:%M') if job.date_created else '' }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <form method="POST" action="{{ url_for('supervisor.update_job_status', job_id=job.id) }}" 
+                                              style="display: inline;" onsubmit="return confirm('Mark job #{{ job.id }} as completed?')">
+                                            <input type="hidden" name="status" value="COMPLETED">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                ✅ Complete
+                                            </button>
+                                        </form>
+                                        <a href="{{ url_for('supervisor.job_analysis', job_id=job.id) }}" 
+                                           class="btn btn-sm btn-outline">
+                                            📊 Analysis
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">🔧</div>
+                    <h4>No jobs in progress</h4>
+                    <p>No jobs are currently being worked on.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Completed Jobs -->
+            <div class="tab-pane fade {% if jobs_by_status.COMPLETED %}show active{% endif %}" 
+                 id="completed" role="tabpanel">
+                {% if jobs_by_status.COMPLETED %}
+                <div class="table-container">
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Department</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Completed By</th>
+                                <th>Completed Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in jobs_by_status.COMPLETED[:20] %}
+                            <tr class="job-row">
+                                <td><strong>#{{ job.id }}</strong></td>
+                                <td>{{ job.department }}</td>
+                                <td>
+                                    <div class="description-cell">
+                                        {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="category-badge category-{{ job.category|lower }}">
+                                        {{ job.category }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{ job.worker_name or 'Unknown' }}</span>
+                                </td>
+                                <td>
+                                    <div class="date-cell">
+                                        {{ job.date_created.strftime('%b %d, %Y') if job.date_created else 'N/A' }}
+                                        <br>
+                                        <small>{{ job.date_created.strftime('%H:%M') if job.date_created else '' }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('supervisor.job_analysis', job_id=job.id) }}" 
+                                           class="btn btn-sm btn-outline">
+                                            📊 View Details
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">✅</div>
+                    <h4>No completed jobs</h4>
+                    <p>No jobs have been completed yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h4>No jobs available</h4>
+            <p>Job queue could not be loaded. Please check database connection.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function refreshQueue() {
+    location.reload();
+}
+
+// Auto-refresh every 30 seconds
+setTimeout(refreshQueue, 30000);
+</script>
+{% endblock %}

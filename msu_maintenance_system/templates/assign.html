@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Job - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <h1>👥 Assign Maintenance Job</h1>
+    <p>Allocate staff to resolve the maintenance request</p>
+</div>
+
+<!-- Job Details Card -->
+<div class="card">
+    <div class="card-header">
+        <h3>📋 Job Details</h3>
+        <div class="job-id">
+            <span class="badge">Job #{{ job.id }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="job-details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Department:</span>
+                <span class="detail-value">{{ job.department }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Category:</span>
+                <span class="category-badge category-{{ job.category|lower }}">{{ job.category }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Priority:</span>
+                <span class="priority-badge priority-{{ job.priority|lower }}">{{ job.priority }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Status:</span>
+                <span class="status-badge status-{{ job.status|lower|replace(' ', '-') }}">{{ job.status }}</span>
+            </div>
+        </div>
+        
+        <div class="description-section">
+            <h4>📝 Issue Description</h4>
+            <div class="description-box">
+                {{ job.description }}
+            </div>
+        </div>
+        
+        <div class="date-info">
+            <small>
+                <strong>Submitted:</strong> {{ job.date_created.strftime('%B %d, %Y at %I:%M %p') if job.date_created else 'N/A' }}
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- AI Recommendation Card -->
+{% if recommendation %}
+<div class="card recommendation-card">
+    <div class="card-header">
+        <h3>🤖 AI Recommendation</h3>
+        <div class="ai-badge">
+            <span class="badge" style="background: var(--accent-color); color: white;">Smart Suggestion</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="recommendation-content">
+            <div class="recommendation-icon">💡</div>
+            <div class="recommendation-text">
+                <h4>Recommended Worker</h4>
+                <p class="worker-name">{{ recommendation }}</p>
+                <p class="recommendation-reason">
+                    Based on historical performance with similar {{ job.category|lower }} jobs
+                </p>
+            </div>
+        </div>
+        <div class="recommendation-actions">
+            <button type="button" class="btn btn-primary" onclick="useRecommendation('{{ recommendation }}')">
+                ✅ Use Recommendation
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Assignment Form -->
+<div class="card">
+    <div class="card-header">
+        <h3>🔧 Assignment Details</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="assignmentForm" onsubmit="return validateAssignment()">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="worker">
+                        👤 Worker Name <span class="required">*</span>
+                    </label>
+                    <select id="worker" name="worker" required>
+                        <option value="">Select Worker...</option>
+                        <option value="John Smith">John Smith - Plumbing Specialist</option>
+                        <option value="Mary Johnson">Mary Johnson - Electrical Technician</option>
+                        <option value="Robert Brown">Robert Brown - Mechanical Engineer</option>
+                        <option value="Patricia Davis">Patricia Davis - Civil Works</option>
+                        <option value="Michael Wilson">Michael Wilson - General Maintenance</option>
+                        <option value="Sarah Moore">Sarah Moore - HVAC Specialist</option>
+                        <option value="David Taylor">David Taylor - Electrical</option>
+                        <option value="Lisa Anderson">Lisa Anderson - Plumbing</option>
+                        <option value="James Thomas">James Thomas - Civil Works</option>
+                        <option value="Jennifer Jackson">Jennifer Jackson - General</option>
+                    </select>
+                    <div class="form-help">
+                        <small>Select the most appropriate worker for this job type</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="priority">
+                        ⚡ Assignment Priority
+                    </label>
+                    <select id="priority" name="priority">
+                        <option value="normal">Normal Priority</option>
+                        <option value="high">High Priority</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                    <div class="form-help">
+                        <small>Adjust based on current workload</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">
+                    📝 Assignment Notes (Optional)
+                </label>
+                <textarea 
+                    id="notes" 
+                    name="notes" 
+                    placeholder="Add any specific instructions or notes for the assigned worker..."
+                    rows="3"></textarea>
+                <div class="form-help">
+                    <small>Special instructions, safety notes, or additional context</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="estimated_time">
+                    ⏱️ Estimated Completion Time
+                </label>
+                <input 
+                    type="text" 
+                    id="estimated_time" 
+                    name="estimated_time" 
+                    placeholder="e.g., 2 hours, 1 day, 3 days">
+                <div class="form-help">
+                    <small>Helps with scheduling and planning</small>
+                </div>
+            </div>
+            
+            <div class="assignment-preview" id="assignmentPreview" style="display: none;">
+                <div class="preview-header">
+                    <h4>📋 Assignment Summary</h4>
+                </div>
+                <div class="preview-content">
+                    <div class="preview-item">
+                        <span>Worker:</span>
+                        <span id="previewWorker">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Priority:</span>
+                        <span id="previewPriority">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Estimated Time:</span>
+                        <span id="previewTime">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <span>👥</span> Assign Job
+                </button>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline">
+                    Cancel
+                </a>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                    ⏭️ Skip Assignment
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.job-id {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.job-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-6);
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.detail-label {
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.detail-value {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.description-section {
+    margin: var(--spacing-6) 0;
+}
+
+.description-section h4 {
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-2);
+}
+
+.description-box {
+    background: var(--gray-50);
+    padding: var(--spacing-4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    line-height: 1.6;
+    color: var(--gray-700);
+}
+
+.date-info {
+    margin-top: var(--spacing-4);
+    padding-top: var(--spacing-4);
+    border-top: 1px solid var(--gray-200);
+    color: var(--gray-500);
+}
+
+.recommendation-card {
+    border: 2px solid var(--accent-color);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(102, 126, 234, 0.1) 100%);
+}
+
+.ai-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.recommendation-content {
+    display: flex;
+    gap: var(--spacing-4);
+    align-items: flex-start;
+    margin-bottom: var(--spacing-4);
+}
+
+.recommendation-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.recommendation-text h4 {
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-1);
+}
+
+.worker-name {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-1);
+}
+
+.recommendation-reason {
+    color: var(--gray-600);
+    font-size: var(--font-size-sm);
+}
+
+.recommendation-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.assignment-preview {
+    margin: var(--spacing-6) 0;
+    padding: var(--spacing-4);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.preview-header h4 {
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-3);
+}
+
+.preview-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-3);
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-2);
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+}
+
+.preview-item span:first-child {
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.preview-item span:last-child {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+@media (max-width: 768px) {
+    .job-details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .recommendation-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .recommendation-actions {
+        justify-content: center;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .preview-content {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+function useRecommendation(workerName) {
+    document.getElementById('worker').value = workerName;
+    updatePreview();
+    
+    // Scroll to form
+    document.getElementById('assignmentForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function validateAssignment() {
+    const worker = document.getElementById('worker').value;
+    
+    if (!worker) {
+        alert('Please select a worker for this assignment.');
+        return false;
+    }
+    
+    // Show loading
+    showLoading();
+    return true;
+}
+
+// Live preview update
+function updatePreview() {
+    const worker = document.getElementById('worker').value;
+    const priority = document.getElementById('priority').value;
+    const time = document.getElementById('estimated_time').value;
+    
+    if (worker || priority || time) {
+        document.getElementById('assignmentPreview').style.display = 'block';
+        document.getElementById('previewWorker').textContent = worker || '-';
+        document.getElementById('previewPriority').textContent = priority || '-';
+        document.getElementById('previewTime').textContent = time || '-';
+    } else {
+        document.getElementById('assignmentPreview').style.display = 'none';
+    }
+}
+
+// Add event listeners for live preview
+document.getElementById('worker').addEventListener('change', updatePreview);
+document.getElementById('priority').addEventListener('change', updatePreview);
+document.getElementById('estimated_time').addEventListener('input', updatePreview);
+</script>
+{% endblock %}

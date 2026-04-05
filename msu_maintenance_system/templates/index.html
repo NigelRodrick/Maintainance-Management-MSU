@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Maintenance Request - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <h1>➕ Submit Maintenance Request</h1>
+    <p>Report a maintenance issue for prompt resolution</p>
+</div>
+
+<!-- Submission Form -->
+<div class="card">
+    <div class="card-header">
+        <h3>🔧 New Request Details</h3>
+        <div class="form-info">
+            <span class="badge">AI-Powered Classification</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="jobForm" onsubmit="return validateForm()">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="department">
+                        🏢 Department <span class="required">*</span>
+                    </label>
+                    <select id="department" name="department" required>
+                        <option value="">Select Department...</option>
+                        <option value="Academic Affairs">Academic Affairs</option>
+                        <option value="Administration">Administration</option>
+                        <option value="Library">Library</option>
+                        <option value="Student Affairs">Student Affairs</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Human Resources">Human Resources</option>
+                        <option value="ICT Department">ICT Department</option>
+                        <option value="Health Centre">Health Centre</option>
+                        <option value="Sports Department">Sports Department</option>
+                        <option value="Residence">Residence</option>
+                        <option value="Cafeteria">Cafeteria</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Science Labs">Science Labs</option>
+                        <option value="Lecture Halls">Lecture Halls</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="urgency">
+                        ⚡ Urgency Level
+                    </label>
+                    <select id="urgency" name="urgency">
+                        <option value="normal">Normal</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">
+                    📝 Issue Description <span class="required">*</span>
+                </label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    placeholder="Please provide a detailed description of the maintenance issue. Include location, specific problems, and any relevant details that will help our team address the issue effectively."
+                    required
+                    minlength="10"
+                    maxlength="1000"
+                    rows="5"></textarea>
+                <div class="form-help">
+                    <small>Minimum 10 characters. Maximum 1000 characters.</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="location">
+                    📍 Specific Location (Optional)
+                </label>
+                <input 
+                    type="text" 
+                    id="location" 
+                    name="location" 
+                    placeholder="e.g., Room 203, Building A, Main Campus">
+                <div class="form-help">
+                    <small>Help us locate the issue faster</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="contact">
+                    📞 Contact Phone (Optional)
+                </label>
+                <input 
+                    type="tel" 
+                    id="contact" 
+                    name="contact" 
+                    placeholder="For follow-up questions">
+                <div class="form-help">
+                    <small>In case we need additional information</small>
+                </div>
+            </div>
+            
+            <!-- ML Prediction Preview -->
+            <div class="prediction-preview" id="predictionPreview" style="display: none;">
+                <div class="card-header">
+                    <h4>🤖 AI Analysis Preview</h4>
+                </div>
+                <div class="card-body">
+                    <div class="prediction-grid">
+                        <div class="prediction-item">
+                            <span class="prediction-label">Category:</span>
+                            <span class="prediction-value" id="predictedCategory">-</span>
+                        </div>
+                        <div class="prediction-item">
+                            <span class="prediction-label">Priority:</span>
+                            <span class="prediction-value" id="predictedPriority">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                    <span>🚀</span> Submit Request
+                </button>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Instructions Card -->
+<div class="card">
+    <div class="card-header">
+        <h3>📋 Submission Guidelines</h3>
+    </div>
+    <div class="card-body">
+        <div class="guidelines-grid">
+            <div class="guideline-item">
+                <div class="guideline-icon">✅</div>
+                <div class="guideline-content">
+                    <h4>Be Specific</h4>
+                    <p>Provide detailed descriptions to help us understand the issue better.</p>
+                </div>
+            </div>
+            <div class="guideline-item">
+                <div class="guideline-icon">📍</div>
+                <div class="guideline-content">
+                    <h4>Include Location</h4>
+                    <p>Exact location helps our team respond faster.</p>
+                </div>
+            </div>
+            <div class="guideline-item">
+                <div class="guideline-icon">📸</div>
+                <div class="guideline-content">
+                    <h4>Document Issues</h4>
+                    <p>If possible, take photos of the problem area.</p>
+                </div>
+            </div>
+            <div class="guideline-item">
+                <div class="guideline-icon">⏰</div>
+                <div class="guideline-content">
+                    <h4>Report Early</h4>
+                    <p>Submit requests as soon as issues are noticed.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.required {
+    color: var(--error-color);
+    font-weight: 600;
+}
+
+.form-help {
+    margin-top: var(--spacing-1);
+    color: var(--gray-500);
+}
+
+.form-help small {
+    font-size: var(--font-size-xs);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-4);
+    margin-top: var(--spacing-8);
+    padding-top: var(--spacing-6);
+    border-top: 1px solid var(--gray-200);
+}
+
+.prediction-preview {
+    margin: var(--spacing-6) 0;
+    border: 2px dashed var(--primary-color);
+    background: var(--gray-50);
+}
+
+.prediction-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-4);
+}
+
+.prediction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3);
+    background: white;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.prediction-label {
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.prediction-value {
+    font-weight: 600;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    font-size: var(--font-size-sm);
+}
+
+.guidelines-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-6);
+}
+
+.guideline-item {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: flex-start;
+}
+
+.guideline-icon {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+}
+
+.guideline-content h4 {
+    color: var(--gray-800);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin-bottom: var(--spacing-1);
+}
+
+.guideline-content p {
+    color: var(--gray-600);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .prediction-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .guidelines-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+function validateForm() {
+    const description = document.getElementById('description').value;
+    const department = document.getElementById('department').value;
+    
+    if (description.length < 10) {
+        alert('Please provide a more detailed description (minimum 10 characters).');
+        return false;
+    }
+    
+    if (!department) {
+        alert('Please select a department.');
+        return false;
+    }
+    
+    // Show loading
+    showLoading();
+    return true;
+}
+
+// Live preview of ML predictions (simulated)
+document.getElementById('description').addEventListener('input', function() {
+    const description = this.value;
+    const preview = document.getElementById('predictionPreview');
+    
+    if (description.length >= 20) {
+        preview.style.display = 'block';
+        
+        // Simulate ML prediction based on keywords
+        let category = 'General';
+        let priority = 'Medium';
+        
+        if (description.toLowerCase().includes('water') || description.toLowerCase().includes('leak') || description.toLowerCase().includes('pipe')) {
+            category = 'Plumbing';
+            priority = 'High';
+        } else if (description.toLowerCase().includes('power') || description.toLowerCase().includes('electric') || description.toLowerCase().includes('light')) {
+            category = 'Electrical';
+            priority = 'High';
+        } else if (description.toLowerCase().includes('air') || description.toLowerCase().includes('cooling') || description.toLowerCase().includes('heating')) {
+            category = 'Mechanical';
+            priority = 'Medium';
+        } else if (description.toLowerCase().includes('wall') || description.toLowerCase().includes('floor') || description.toLowerCase().includes('door')) {
+            category = 'Civil';
+            priority = 'Low';
+        }
+        
+        document.getElementById('predictedCategory').textContent = category;
+        document.getElementById('predictedPriority').textContent = priority;
+    } else {
+        preview.style.display = 'none';
+    }
+});
+
+// Character counter
+const description = document.getElementById('description');
+description.addEventListener('input', function() {
+    const remaining = 1000 - this.value.length;
+    const help = this.parentElement.querySelector('.form-help small');
+    help.textContent = `${this.value.length}/1000 characters${remaining < 100 ? ' (' + remaining + ' remaining)' : ''}`;
+    
+    if (remaining < 100) {
+        help.style.color = 'var(--warning-color)';
+    } else {
+        help.style.color = 'var(--gray-500)';
+    }
+});
+</script>
+{% endblock %}

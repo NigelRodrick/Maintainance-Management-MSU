@@ -1,0 +1,15 @@
+services:
+  web:
+    build:
+      context: ./msu_maintenance_system
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+      USE_SQLITE: "1"
+    volumes:
+      - msu_sqlite:/app/instance
+
+volumes:
+  msu_sqlite:

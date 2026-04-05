@@ -1,0 +1,557 @@
+MSU MAINTENANCE MANAGEMENT SYSTEM
+FULL DEPLOYMENT READINESS PLAN
+
+Enterprise Architecture  •  Phased Refactoring
+Database Redesign  •  CI/CD Pipeline
+Security Hardening  •  ML/Analytics Roadmap
+
+Document Classification: CONFIDENTIAL
+Version 1.0  |  April 2026
+Midlands State University — Central Services & Amenities
+
+
+ 
+OUTPUT 1 — FULL DEPLOYMENT READINESS PLAN
+
+1. Current State Diagnosis
+The following assessment is based on analysis of the System Technical Audit Report, Database Audit Report, and Analytics & ML Strategy. Ratings are brutally honest and implementation-relevant.
+
+1.1 Overall Readiness Score
+Audit Domain	Readiness
+Application Architecture	65%  —  Functional but fragile
+Database Design	75%  —  Solid foundation, legacy cruft
+Security Posture	35%  —  CRITICAL: Not production safe
+Test Coverage	0%  —  ZERO tests detected
+CI/CD & Deployment	0%  —  No pipeline exists
+Performance Optimisation	45%  —  No caching, missing composite indexes
+Analytics / ML	20%  —  Basic charts only; ML eradicated
+
+1.2 Critical Failures (Must Fix Before Go-Live)
+🔴 Critical Failures
+CF-01  Hard-coded SQL Server name (DESKTOP-IO9GJQS\SQLEXPRESS) embedded in configuration — exposes infrastructure topology.
+CF-02  Zero test coverage across unit, integration, and end-to-end layers — no confidence in correctness.
+CF-03  No rate limiting on authentication endpoints — susceptible to brute-force attacks.
+CF-04  No CI/CD pipeline — deployments are entirely manual and unrepeatable.
+CF-05  materials.job_id is nullable — orphaned material records with no parent job are possible.
+CF-06  Mixed-case status values (Pending / PENDING / pending) violate the CHECK constraint and corrupt analytics.
+CF-07  No input sanitisation at the service layer — XSS and injection vectors remain open.
+CF-08  No session timeout configured — sessions persist indefinitely after inactivity.
+
+1.3 Architectural Flaws
+🟡 Architectural Flaws
+AF-01  Business logic leaks into route handlers — classification rules found in both routes and services.
+AF-02  No dependency injection — services instantiate their own dependencies, making unit testing impossible.
+AF-03  Single database connection model — no connection pooling configured; connection exhaustion under load.
+AF-04  SQLAlchemy ORM used inconsistently alongside raw PyODBC calls — two data-access patterns in conflict.
+AF-05  No API versioning — future breaking changes cannot be managed safely.
+AF-06  No caching layer — every dashboard load queries the database from scratch.
+AF-07  Monolith with no modularity contracts — changes in one service can silently break another.
+
+1.4 Data Integrity Risks
+🟡 Data Integrity Risks
+DIR-01  submitted_by in job_requests is nullable — requests exist with no traceable owner.
+DIR-02  worker_name and worker_id both exist in assignments — dual tracking with no single source of truth.
+DIR-03  No CHECK constraint preventing quantity_used > quantity_required in materials.
+DIR-04  No CHECK constraint ensuring end_time >= start_time in assignments.
+DIR-05  predictions table persists in schema despite ML being eradicated — stale structure misleads future developers.
+DIR-06  simulated_data.csv and sliding_window.pkl files are present in the repository — legacy artefacts not integrated.
+DIR-07  No soft-delete columns — deleted records are physically removed, breaking audit continuity.
+
+1.5 Security Vulnerabilities
+🔴 Security Vulnerabilities
+SEC-01  Database server name hard-coded in config.py — must be externalised to environment variable.
+SEC-02  Trusted Connection (Windows Auth) — overly permissive in a production context; SQL auth with least-privilege account required.
+SEC-03  No HTTPS enforcement — all traffic transmitted in plaintext.
+SEC-04  No Content-Security-Policy, X-Frame-Options, or other HTTP security headers.
+SEC-05  No password complexity policy — any string passes registration.
+SEC-06  Flask SECRET_KEY likely not set via environment variable — defaults to insecure value.
+SEC-07  No CSRF protection confirmed on form submissions.
+SEC-08  User roles enforced only at application level — no row-level security in the database.
+
+1.6 Performance Bottlenecks
+🟡 Performance Bottlenecks
+PB-01  No Redis or in-memory cache — dashboard statistics recomputed on every request.
+PB-02  No composite indexes for multi-column filter patterns (status + date_created, worker_id + status).
+PB-03  Full-text search on description column performed via LIKE '%keyword%' — no full-text index.
+PB-04  Chart images generated server-side with Matplotlib on each request — expensive and blocking.
+PB-05  No pagination on job listings — full table scans as data grows.
+PB-06  No asynchronous task queue — long-running report generation blocks the WSGI worker.
+
+1.7 Technical Debt
+🟢 Technical Debt
+TD-01  scikit-learn and joblib remain in requirements.txt but are unused — increases attack surface and install time.
+TD-02  sliding_window.pkl ML artefact file exists in /data — misleading presence in a non-ML codebase.
+TD-03  generate_data.py and create_admin_user.py are scripts at the project root with no environment guard — dangerous in production.
+TD-04  Mixed naming conventions (snake_case vs camelCase) across service files.
+TD-05  No version pinning in requirements.txt — builds are not reproducible.
+TD-06  database_migrations/ contains ad-hoc SQL scripts with no migration framework (Flask-Migrate not fully utilised).
+TD-07  No .env.example file or documented environment variable list for onboarding.
+
+ 
+2. Target Architecture
+2.1 Architecture Style Decision
+Recommended: Modular Monolith
+Justification: The system serves a single institution (Midlands State University) with a user base that does not warrant the operational overhead of a microservices deployment. A modular monolith retains the simplicity of a single deployable unit whilst enforcing strict internal module boundaries through well-defined interfaces. This enables future extraction into microservices if scale demands it, without the premature complexity that microservices would introduce at this stage. The Flask Blueprint architecture already provides the foundation; the refactor enforces clean contracts between modules.
+
+2.2 Layered Architecture
+Layer	Responsibility	Technology
+Presentation Layer	HTML templates rendered server-side; Jinja2 templates per role; responsive UI with Bootstrap 5	Jinja2, Bootstrap 5, Plotly.js
+API Layer	Versioned REST endpoints (/api/v1/); JSON responses; JWT or session token auth; rate limiting per endpoint	Flask Blueprints, Flask-Limiter
+Service Layer	Business logic only; no direct DB calls; all external dependencies injected; stateless functions	Python services, dependency injection
+Domain Layer	Core business entities, value objects, status machines, business rules	Python dataclasses / Pydantic models
+Data Access Layer	All DB interactions via repository pattern; SQLAlchemy ORM exclusively; no raw PyODBC in services	SQLAlchemy, repository classes
+
+2.3 System Components
+2.3.1 Authentication & Authorisation
+•	Flask-Login for session management with explicit 30-minute inactivity timeout.
+•	Flask-WTF for CSRF protection on all form submissions.
+•	Werkzeug password hashing (bcrypt) with minimum 12 rounds.
+•	Role enum: admin | supervisor | staff — enforced at decorator and service layer.
+•	All role checks via @require_role(Role.ADMIN) decorator pattern, never inline conditionals.
+
+2.3.2 Job Management Engine
+•	JobRequest lifecycle state machine: PENDING → IN_PROGRESS → COMPLETED (with CANCELLED branch).
+•	State transitions validated in JobService — illegal transitions raise DomainException.
+•	Every transition recorded in job_status_history with actor, timestamp, and optional notes.
+
+2.3.3 Assignment Engine
+•	WorkerRepository provides availability and skill lookups.
+•	AssignmentService enforces one active assignment per worker at a time.
+•	Recommendations ranked by: matching category > current workload > historical performance score.
+
+2.3.4 Analytics Engine
+•	Separate AnalyticsService reads from dedicated reporting views, never from live transaction tables directly.
+•	Phase 1 charts pre-computed and cached in Redis with 5-minute TTL.
+•	Phase 3+ ML inference served via a dedicated /api/v1/analytics/predict endpoint.
+
+2.3.5 Notification System
+•	Celery task queue (backed by Redis) for async notification dispatch.
+•	Initial implementation: in-app notifications stored in notifications table.
+•	Phase 7 extension: email notifications via Flask-Mail / SendGrid.
+
+2.3.6 Audit & Logging System
+•	UserActivityLog captures all state-changing operations with user, IP, user agent, and timestamp.
+•	Structured JSON logging via Python logging to stdout — collected by log aggregator.
+•	Separate audit schema tables are read-only to application service account.
+
+2.4 Infrastructure Design
+Component	Solution	Configuration
+Primary Database	SQL Server 2019 Standard	Connection pooling via SQLAlchemy pool_size=10, max_overflow=20
+Caching Layer	Redis 7.x	Flask-Caching + Celery broker. TTL 300s for dashboards, 3600s for reports
+Task Queue	Celery + Redis	Workers: report generation, email dispatch, ML inference
+Reverse Proxy	Nginx 1.24	TLS termination, static file serving, upstream to Gunicorn (4 workers)
+Monitoring	Prometheus + Grafana	Flask metrics via prometheus-flask-exporter. Grafana dashboards for request rate, error rate, DB pool saturation
+
+2.5 Deployment Architecture
+Three isolated environments are mandatory. Each environment is a separate Docker Compose stack.
+
+Environment	Purpose	Config
+Development	Local developer machines; hot reload enabled; seed database with generate_data.py (guarded by ENV=development check)	.env.development; DEBUG=True; SQL Server Express permitted
+Staging	Pre-production mirror; full integration and E2E tests run here; UAT performed by MSU stakeholders	.env.staging; DEBUG=False; anonymised production data subset
+Production	Live system; zero-downtime deployment via blue-green or rolling strategy; backups automated daily	.env.production (secrets via GitHub Secrets / Vault); TLS enforced; DEBUG=False
+
+ 
+3. Database & Data Architecture
+3.1 Target Schema — Standardised Structure
+All tables use lowercase snake_case. Status and role values are UPPERCASE. All FKs are NOT NULL except where business logic genuinely permits no parent (noted below). Soft delete via is_deleted BIT column on all transaction tables.
+
+3.1.1 workers Table (New)
+CREATE TABLE workers (
+    id              INT           PRIMARY KEY IDENTITY(1,1),
+    user_id         INT           NULL,   -- FK to users.id (NULL if worker has no system account)
+    full_name       VARCHAR(150)  NOT NULL,
+    department      VARCHAR(100)  NOT NULL,
+    skill_category  VARCHAR(50)   NOT NULL,  -- electrical|plumbing|carpentry|mechanical|civil
+    is_active       BIT           NOT NULL DEFAULT 1,
+    created_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    is_deleted      BIT           NOT NULL DEFAULT 0
+);
+
+3.1.2 job_requests Table (Revised)
+CREATE TABLE job_requests (
+    id              INT           PRIMARY KEY IDENTITY(1,1),
+    reference_no    VARCHAR(20)   NOT NULL UNIQUE,  -- e.g. JR-2026-00001
+    department      VARCHAR(100)  NOT NULL,
+    description     NVARCHAR(MAX) NOT NULL,
+    category        VARCHAR(50)   NOT NULL,
+    priority        VARCHAR(20)   NOT NULL DEFAULT 'MEDIUM',
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    submitted_by    INT           NOT NULL,  -- FK to users.id (NOT NULL — must have owner)
+    date_created    DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    is_deleted      BIT           NOT NULL DEFAULT 0,
+    CONSTRAINT CK_job_requests_status   CHECK (status   IN ('PENDING','IN_PROGRESS','COMPLETED','CANCELLED')),
+    CONSTRAINT CK_job_requests_priority CHECK (priority IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    CONSTRAINT FK_job_requests_users FOREIGN KEY (submitted_by) REFERENCES users(id)
+);
+
+3.1.3 assignments Table (Revised)
+CREATE TABLE assignments (
+    id              INT           PRIMARY KEY IDENTITY(1,1),
+    job_id          INT           NOT NULL,
+    worker_id       INT           NOT NULL,  -- FK to workers.id (single source of truth)
+    status          VARCHAR(20)   NOT NULL DEFAULT 'ASSIGNED',
+    start_time      DATETIME2     NULL,
+    end_time        DATETIME2     NULL,
+    created_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    is_deleted      BIT           NOT NULL DEFAULT 0,
+    CONSTRAINT CK_assignments_dates   CHECK (end_time IS NULL OR end_time >= start_time),
+    CONSTRAINT CK_assignments_status  CHECK (status IN ('ASSIGNED','IN_PROGRESS','COMPLETED','CANCELLED')),
+    CONSTRAINT FK_assignments_job_requests FOREIGN KEY (job_id) REFERENCES job_requests(id),
+    CONSTRAINT FK_assignments_workers      FOREIGN KEY (worker_id) REFERENCES workers(id)
+);
+
+3.1.4 materials Table (Revised)
+CREATE TABLE materials (
+    id                  INT           PRIMARY KEY IDENTITY(1,1),
+    job_id              INT           NOT NULL,  -- FK enforced, NOT NULL
+    item_name           VARCHAR(150)  NOT NULL,
+    unit                VARCHAR(30)   NOT NULL DEFAULT 'units',
+    quantity_required   DECIMAL(10,2) NOT NULL,
+    quantity_used       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at          DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT CK_materials_quantity CHECK (quantity_used <= quantity_required AND quantity_required > 0),
+    CONSTRAINT FK_materials_job_requests FOREIGN KEY (job_id) REFERENCES job_requests(id)
+);
+
+3.1.5 job_status_history Table (Replaces JobStatusAudit)
+CREATE TABLE job_status_history (
+    id              INT           PRIMARY KEY IDENTITY(1,1),
+    job_id          INT           NOT NULL,
+    from_status     VARCHAR(20)   NULL,
+    to_status       VARCHAR(20)   NOT NULL,
+    changed_by      INT           NOT NULL,
+    changed_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    notes           NVARCHAR(500) NULL,
+    CONSTRAINT FK_jsh_job_requests FOREIGN KEY (job_id) REFERENCES job_requests(id),
+    CONSTRAINT FK_jsh_users        FOREIGN KEY (changed_by) REFERENCES users(id)
+);
+
+3.2 Indexing Strategy
+Index Name	Columns	Rationale
+IX_job_requests_status_date	status, date_created	Dashboard filters by status + date range
+IX_job_requests_dept_status	department, status	Hotspot analysis queries
+IX_assignments_worker_status	worker_id, status	Workload queries per worker
+IX_job_status_history_job	job_id, changed_at	Audit trail lookups
+IX_user_activity_log_user_ts	user_id, timestamp	Per-user activity reports
+FTI_job_requests_description	description (Full-Text)	Keyword search on descriptions
+
+3.3 Migration Strategy (Zero Data Loss)
+1.	Create a full backup of CentralServices_AM_DB before any migration step.
+2.	Run migration scripts in a transaction — each script begins with BEGIN TRANSACTION and only commits after validation.
+3.	Migrate status values: UPDATE job_requests SET status = UPPER(TRIM(status)) WHERE status NOT IN ('PENDING','IN_PROGRESS','COMPLETED','CANCELLED');
+4.	Migrate role values: UPDATE users SET role = LOWER(TRIM(role));
+5.	Create workers table; populate from DISTINCT (worker_name, worker_id) in assignments; update assignments.worker_id FK; drop worker_name column.
+6.	Set submitted_by NOT NULL after backfilling any NULL rows to a designated 'system' user account.
+7.	Rename JobStatusAudit → job_status_history with column renames.
+8.	Add soft-delete columns to all transaction tables (ALTER TABLE … ADD is_deleted BIT NOT NULL DEFAULT 0).
+9.	Apply all new CHECK constraints.
+10.	Drop the predictions table after archiving its contents to a CSV export for historical record.
+11.	Run integrity validation script: confirm zero orphaned records, zero constraint violations.
+
+ 
+4. Naming Convention Standard
+4.1 Database Naming Rules
+Element	Rule	Example
+Tables	Lowercase plural snake_case	job_requests, workers, materials
+Columns	Lowercase snake_case	submitted_by, date_created, is_deleted
+Primary Keys	Always 'id'	id INT PRIMARY KEY IDENTITY
+Foreign Keys	Referenced table singular + _id	job_id, worker_id, user_id
+Status values	UPPER_SNAKE_CASE	PENDING, IN_PROGRESS, COMPLETED
+Role values	lowercase	admin, supervisor, staff
+Constraints	Prefix_TableName_Column	CK_job_requests_status, FK_materials_job_requests
+Indexes	IX_TableName_Columns	IX_job_requests_status_date
+Triggers	TR_TableName_Event	TR_job_requests_updated_at
+Views	vw_DescriptiveName	vw_department_workload_summary
+Stored Procs	usp_VerbNoun	usp_GetActiveJobs
+
+4.2 Application Code Naming Rules
+Element	Rule	Example
+Python files	lowercase_snake_case.py	job_service.py, worker_repository.py
+Python classes	PascalCase	JobService, WorkerRepository
+Python functions	lowercase_snake_case()	get_active_jobs(), assign_worker()
+Python constants	UPPER_SNAKE_CASE	MAX_WORKERS_PER_JOB = 3
+Flask Blueprints	snake_case name, /resource prefix	jobs_bp, url_prefix='/jobs'
+Template files	lowercase_snake_case.html	job_detail.html, worker_list.html
+Static files	lowercase-kebab-case	main-styles.css, dashboard-charts.js
+
+4.3 API Endpoint Naming Rules
+Method	Pattern	Action	Example
+GET	/api/v1/{resource}	List	GET /api/v1/jobs
+GET	/api/v1/{resource}/{id}	Retrieve	GET /api/v1/jobs/42
+POST	/api/v1/{resource}	Create	POST /api/v1/jobs
+PATCH	/api/v1/{resource}/{id}	Partial update	PATCH /api/v1/jobs/42/status
+DELETE	/api/v1/{resource}/{id}	Soft delete	DELETE /api/v1/jobs/42
+
+4.4 Current Violations & Correction Mapping
+ID	Violation	Correction
+V-01	JobStatusAudit — PascalCase table name	Rename to job_status_history
+V-02	UserActivityLog — PascalCase table name	Rename to user_activity_log
+V-03	assignments.worker_name — free-text duplicate of worker_id	Drop worker_name; use workers.full_name via JOIN
+V-04	Status values: mixed case 'Pending', 'PENDING', 'pending'	Data migration: UPPER(TRIM(status)). Add CHECK constraint.
+V-05	Role values: 'USER', 'ADMIN', 'staff' — inconsistent casing	Standardise to lowercase: 'staff', 'supervisor', 'admin'
+V-06	DESKTOP-IO9GJQS\SQLEXPRESS hard-coded in config.py	Replace with os.environ['DB_SERVER']; document in .env.example
+
+ 
+5. Phased Refactoring Plan
+Each phase must be completed and validated before the next begins. Estimated durations assume one focused developer. The exit criteria are non-negotiable gates.
+
+Phase 1: Cleanup & Stabilisation
+Objective
+	Remove legacy artefacts, pin all dependencies, externalise all configuration, and establish baseline reproducible builds.
+Tasks
+	1. Delete sliding_window.pkl, simulated_data.csv (archive to /archive/ first). 2. Remove predictions table via migration (export to CSV first). 3. Pin all packages in requirements.txt with exact versions. 4. Create .env.example with all required environment variable keys (no values). 5. Refactor config.py to read 100% from environment variables. 6. Add ENV guard to generate_data.py and create_admin_user.py (abort if ENV != 'development'). 7. Remove scikit-learn and joblib from requirements.txt. 8. Run pip-audit on pinned requirements. 9. Add .gitignore entries for *.pkl, *.env, *.pyc.
+Files / Modules
+	config.py, requirements.txt, generate_data.py, create_admin_user.py, /data/*, database_migrations/ (new drop_predictions.sql)
+Risks
+	Developers may rely on hard-coded values in tests or scripts not yet identified. Removal of unused packages may expose hidden imports.
+Validation
+	python -m pytest (no tests yet — confirm import-only succeeds). pip install -r requirements.txt in clean venv. Flask app starts with all config from environment. No *.env file committed to git.
+Exit Criteria
+	Application starts cleanly from environment variables only. requirements.txt is fully pinned. pip-audit reports zero HIGH/CRITICAL vulnerabilities. No legacy ML files in repository.
+
+Phase 2: Data Integrity Fixes
+Objective
+	Execute the full database migration strategy to achieve a consistent, constraint-validated schema with zero orphaned records.
+Tasks
+	1. Backup CentralServices_AM_DB. 2. Run migration 001_normalise_status_roles.sql. 3. Run migration 002_create_workers_table.sql. 4. Run migration 003_populate_workers_from_assignments.sql. 5. Run migration 004_add_soft_delete_columns.sql. 6. Run migration 005_rename_audit_tables.sql. 6. Run migration 006_add_missing_constraints.sql. 7. Run migration 007_add_composite_indexes.sql. 8. Drop predictions table (migration 008). 9. Run integrity_check.sql — confirm zero violations.
+Files / Modules
+	All tables in CentralServices_AM_DB. New: database_migrations/001 through 008. Updated: app/models.py (SQLAlchemy models to match new schema).
+Risks
+	Active data in database; any migration error must be rolled back immediately. submitted_by NULL backfill requires a 'system' user account to be created first.
+Validation
+	Run integrity_check.sql: SELECT COUNT(*) FROM job_requests WHERE submitted_by IS NULL must return 0. SELECT DISTINCT status FROM job_requests must return only valid UPPER_SNAKE values. No FK violations reported by DBCC CHECKCONSTRAINTS.
+Exit Criteria
+	All 8 migrations applied successfully in transaction. models.py reflects new schema. integrity_check.sql passes with zero violations.
+
+Phase 3: Architecture Refactor
+Objective
+	Enforce layered architecture: introduce repository pattern, dependency injection, Pydantic domain models, and API versioning.
+Tasks
+	1. Create app/repositories/ directory with base_repository.py and specific repositories (job_repository.py, worker_repository.py, user_repository.py, material_repository.py). 2. Refactor all services to accept repository dependencies via constructor injection. 3. Create app/domain/ with Pydantic models for JobRequest, Worker, Assignment, Material. 4. Remove all direct PyODBC calls from services — route through repositories only. 5. Create app/api/v1/ Blueprint with versioned JSON endpoints. 6. Add Flask-Limiter to authentication endpoints (5 attempts / minute). 7. Add Flask-WTF CSRF to all form routes. 8. Implement proper 404, 403, 500 error handlers with custom templates.
+Files / Modules
+	app/services/*.py (all 11), app/routes/*.py (all 9), new app/repositories/, new app/domain/, new app/api/v1/, app/__init__.py, app/extensions.py
+Risks
+	Refactoring without tests is high risk — changes may silently break workflows. This phase is the highest-risk phase.
+Validation
+	All existing routes still return HTTP 200 for happy-path scenarios (smoke test via curl/requests). Flask-WTF CSRF token present in all form responses. Rate limiter returns 429 on 6th auth attempt.
+Exit Criteria
+	Zero regression in existing functionality. Repository pattern used exclusively in all services. No direct DB calls outside of repository classes. API v1 Blueprint registered and returning JSON.
+
+Phase 4: Testing Implementation
+Objective
+	Achieve minimum 80% code coverage with unit, integration, and end-to-end tests. Tests written before any further logic changes.
+Tasks
+	1. Install pytest, pytest-cov, pytest-mock, factory-boy, Flask-Testing. 2. Create tests/ directory structure: tests/unit/, tests/integration/, tests/e2e/. 3. Write unit tests for all services (mock repositories). 4. Write unit tests for classification_service.py (keyword rules). 5. Write integration tests for all API v1 endpoints against test database. 6. Write integration tests for all database migrations (apply → verify → rollback). 7. Write E2E tests for critical user journeys using pytest + requests. 8. Configure pytest-cov with minimum 80% threshold — fail build if below. 9. Add conftest.py with fixtures for test DB, authenticated client, seed data.
+Files / Modules
+	New: tests/unit/, tests/integration/, tests/e2e/, conftest.py, pytest.ini. Updated: requirements-dev.txt (separate dev dependencies).
+Risks
+	Test database must use the same schema as production — maintain migration parity. Test data must not contaminate production.
+Validation
+	pytest --cov=app --cov-fail-under=80 passes. All tests green. Coverage report generated to htmlcov/.
+Exit Criteria
+	Minimum 80% overall coverage. 100% coverage on classification_service.py and job domain state machine. All critical user journeys have E2E test.
+
+Phase 5: Performance Optimisation
+Objective
+	Introduce Redis caching, async task queue for report generation, and resolve all identified slow-query patterns.
+Tasks
+	1. Install and configure Redis + Flask-Caching. 2. Wrap dashboard statistic queries with @cache.cached(timeout=300). 3. Install Celery and configure with Redis broker. 4. Move Excel report generation to Celery task — endpoint returns task ID; client polls /api/v1/reports/{task_id}/status. 5. Move Matplotlib chart generation to Celery task; serve pre-rendered images from file storage. 6. Apply composite indexes from migration 007. 7. Enable SQLAlchemy query logging in development; identify and optimise N+1 queries. 8. Add pagination (page_size=25 default) to all list endpoints. 9. Add EXPLAIN ANALYZE output to slow query log.
+Files / Modules
+	app/services/analytics_service.py, app/services/report_service.py, app/routes/main.py, new app/tasks/ (Celery tasks), docker-compose.yml (add Redis service), app/extensions.py
+Risks
+	Celery workers must be running for report generation to work — document in README. Cache invalidation must be triggered on data changes.
+Validation
+	Dashboard page load < 500ms with warm cache (measure with time curl). Report generation returns task ID immediately (< 100ms). pytest performance tests assert cache hit returns < 50ms.
+Exit Criteria
+	Redis caching active and measurably reducing DB load. Report generation is non-blocking. All list views paginated. No N+1 queries in SQLAlchemy query log.
+
+Phase 6: Security Hardening
+Objective
+	Achieve production-grade security posture: HTTPS, HTTP security headers, input validation, session security, and least-privilege DB account.
+Tasks
+	1. Create dedicated SQL Server login 'msu_app_user' with SELECT/INSERT/UPDATE on application tables only; no DDL rights. 2. Implement Flask-Talisman for HTTP security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options). 3. Add server-side input validation with WTForms validators on all form fields. 4. Add Pydantic validation on all API v1 request bodies. 5. Configure Flask session: SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, PERMANENT_SESSION_LIFETIME=1800. 6. Implement password complexity policy (min 10 chars, uppercase, digit, special char). 7. Add brute-force lockout: account locked for 15 min after 5 failed attempts. 8. Run OWASP ZAP baseline scan against staging environment. 9. Add Bandit static analysis to CI pipeline.
+Files / Modules
+	config.py, app/auth/ (all files), app/extensions.py, requirements.txt (add flask-talisman, flask-wtf), SQL Server (new user creation script), Nginx config (TLS), CI pipeline
+Risks
+	TLS certificate provisioning required on server. CSP headers may break existing inline scripts — audit all templates for inline JS/CSS.
+Validation
+	OWASP ZAP baseline scan: zero HIGH findings. Bandit: zero HIGH severity issues. All OWASP Top 10 items addressed (document mapping). Session expires after 30 min inactivity.
+Exit Criteria
+	OWASP ZAP clean. Bandit clean. All auth endpoints rate-limited. HTTPS enforced. Session security configured. Least-privilege DB user in use.
+
+Phase 7: Feature Completion
+Objective
+	Implement missing features: in-app notifications, mobile-responsive UI, advanced analytics, and worker skill management.
+Tasks
+	1. Create notifications table and NotificationService. 2. Implement in-app notification bell UI component (Jinja2 partial). 3. Trigger notifications on: job assignment, status change, material shortage. 4. Upgrade all templates to Bootstrap 5 responsive layout. 5. Add ARIA labels and keyboard navigation to all interactive elements. 6. Implement advanced analytics: mean time to complete by category, department workload heatmap, worker performance leaderboard. 7. Add Plotly.js interactive charts (replaces static Matplotlib images on dashboard). 8. Implement worker skills management screen (admin only). 9. Add full-text search on job descriptions.
+Files / Modules
+	templates/*.html (all 15+), static/css/, static/js/, new app/services/notification_service.py, app/models.py (notifications table), app/routes/analytics.py, app/routes/workers.py
+Risks
+	Bootstrap 5 migration may break existing custom CSS. Interactive charts require careful Plotly.js bundle size management.
+Validation
+	Mobile responsiveness: test on 375px, 768px, 1280px viewports (use pytest-playwright). All notifications generated correctly (integration tests). Advanced analytics endpoints return correct data (unit tests against mock data).
+Exit Criteria
+	All templates pass mobile responsiveness checks. Notification system functional. Advanced analytics charts rendered. Worker skill management operational.
+
+Phase 8: Deployment Preparation
+Objective
+	Containerise the application, build CI/CD pipeline, configure production environment, and complete all pre-launch documentation.
+Tasks
+	1. Write Dockerfile (multi-stage: builder + runtime). 2. Write docker-compose.yml for production (app, nginx, redis, celery-worker). 3. Write docker-compose.dev.yml for development. 4. Write GitHub Actions workflow: lint → test → security-scan → build → deploy-staging → deploy-prod (manual approval gate). 5. Write nginx.conf with TLS, rate limiting, static file serving, upstream to Gunicorn. 6. Configure Prometheus metrics endpoint and Grafana dashboards. 7. Write automated backup script (daily SQL Server backup to secure storage). 8. Write RUNBOOK.md (deployment, rollback, incident response procedures). 9. Write API documentation (OpenAPI 3.0 spec). 10. Final go-live readiness checklist review.
+Files / Modules
+	New: Dockerfile, docker-compose.yml, docker-compose.dev.yml, .github/workflows/ci-cd.yml, nginx/nginx.conf, monitoring/prometheus.yml, monitoring/grafana-dashboard.json, docs/RUNBOOK.md, docs/api-spec.yaml
+Risks
+	Docker image size must be minimised — use python:3.11-slim base. GitHub Actions secrets must be configured before pipeline runs.
+Validation
+	docker compose up --build produces running application. GitHub Actions pipeline runs green end-to-end. Staging deployment completes without error. All monitoring dashboards show data.
+Exit Criteria
+	Docker image builds successfully. CI/CD pipeline green. Staging environment live and passing UAT. Go-live checklist 100% complete.
+
+ 
+6. Testing Strategy
+6.1 Test Architecture
+Test Type	Tool	Coverage Target	What Is Tested
+Unit	pytest + pytest-mock	90% on services, 100% on domain	All service methods, classification rules, state machine transitions, domain validators
+Integration	pytest + Flask test client + test DB	80% on API layer	All API endpoints (auth, jobs, assignments, materials, analytics, reports). All DB migrations.
+End-to-End	pytest-playwright	All critical user journeys	Login flows, job submission, assignment, status update, report download, mobile viewport rendering
+Security	Bandit + OWASP ZAP	Zero HIGH/CRITICAL findings	Static code analysis, DAST scan against staging, dependency vulnerability audit
+
+6.2 Test Data Strategy
+•	Use factory-boy factories to generate realistic test fixtures — never hard-coded dictionaries.
+•	Maintain a separate test database (CentralServices_AM_DB_Test) reset between test runs via conftest.py session fixture.
+•	Seed data mimics production distributions: 40% PENDING, 35% IN_PROGRESS, 25% COMPLETED.
+•	No production data used in tests — anonymised factory data only.
+•	conftest.py provides: db_session, authenticated_client (staff/supervisor/admin variants), sample_job, sample_worker fixtures.
+
+ 
+7. Validation & Quality Gates
+The following gates must be passed before progressing between phases. All gates are automated where possible.
+
+Phase	Gate	Validation Command / Check	Pass Criteria
+1	Clean startup	flask run (from clean venv, no hard-coded vars)	App starts; login page loads; no ImportError
+2	DB integrity	sqlcmd -S $DB_SERVER -d CentralServices_AM_DB -i integrity_check.sql	All counts return 0. DBCC CHECKCONSTRAINTS reports no violations.
+3	Smoke test	pytest tests/smoke/ -v	All critical routes return expected HTTP status codes.
+4	Coverage gate	pytest --cov=app --cov-fail-under=80	Exit code 0. Coverage report shows >= 80% overall.
+5	Performance gate	pytest tests/performance/ (Locust or ab benchmarks)	P95 response time < 500ms at 50 concurrent users.
+6	Security gate	bandit -r app/ -ll && pip-audit -r requirements.txt	Zero HIGH severity in Bandit. Zero CRITICAL/HIGH in pip-audit.
+8	Deploy gate	docker compose up --build (staging). GitHub Actions pipeline passes all stages.	All containers healthy. Pipeline green. UAT sign-off from MSU stakeholder.
+
+ 
+8. CI/CD & Deployment Plan
+8.1 GitHub Actions Pipeline
+File: .github/workflows/ci-cd.yml — triggered on push to main and pull_request to main.
+
+Stage	Job	Steps
+1. Lint	code-quality	flake8 app/ tests/ | black --check app/ tests/ | isort --check app/ tests/
+2. Security Scan	security	bandit -r app/ -ll | pip-audit -r requirements.txt
+3. Unit Tests	unit-tests	pytest tests/unit/ --cov=app --cov-fail-under=80 -v
+4. Integration Tests	integration-tests	Spin up SQL Server container | pytest tests/integration/ -v
+5. Build	docker-build	docker build -t msu-maintenance:${{ github.sha }} . | Push to registry
+6. Deploy Staging	deploy-staging	docker compose pull | docker compose up -d | Health check endpoint | Run E2E tests
+7. Manual Gate	approval	GitHub Environment protection rule: requires reviewer approval before prod deploy
+8. Deploy Prod	deploy-prod	docker compose pull | docker compose up -d --no-downtime | Smoke test | Notify on Slack
+
+8.2 Rollback Strategy
+•	Each Docker image is tagged with git SHA — rollback is: docker compose set image msu-maintenance=msu-maintenance:{previous_sha} && docker compose up -d.
+•	Database migrations are versioned — Flask-Migrate downgrade command reverts last migration: flask db downgrade.
+•	RUNBOOK.md documents exact rollback commands for each deployment scenario.
+•	Automated rollback triggered if health check endpoint (/api/v1/health) returns non-200 within 60 seconds of deployment.
+
+8.3 Docker Configuration
+# Dockerfile (multi-stage)
+FROM python:3.11-slim AS builder
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+FROM python:3.11-slim AS runtime
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
+ENV PATH=/root/.local/bin:$PATH
+ENV FLASK_ENV=production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "run:app"]
+
+ 
+9. Analytics & ML Roadmap
+9.1 Architecture Integration
+The analytics capability is implemented as a distinct AnalyticsModule within the modular monolith. It reads exclusively from reporting views (vw_*) and never writes to transaction tables. ML models are trained offline via Jupyter notebooks and served as serialised artefacts through an MLModelService.
+
+9.2 Phased Analytics Delivery
+Phase	Type	Deliverables	Data Sources
+A1	Descriptive Analytics	Interactive dashboards: jobs by category, status, department. Mean resolution time. Worker throughput. Daily/weekly/monthly trend lines. Excel/CSV export.	job_requests, assignments, job_status_history. Views: vw_department_summary, vw_worker_performance.
+A2	Diagnostic Analytics	Root cause analysis: which departments generate repeated jobs of same category. Correlation heatmaps: priority vs resolution time. Worker skill-to-category mismatch identification.	Historical job_requests + assignments + materials. Pandas EDA in Jupyter. Seaborn correlation matrices.
+A3	Predictive ML	Model 1: Priority Classifier (Random Forest — features: category, department, description keywords). Model 2: Resolution Time Estimator (Gradient Boosting — features: priority, category, worker skill, historical avg). Model 3: Technician Matcher (k-NN — features: skill_category, current_workload, past_performance_score).	Training: simulated_data.csv + production data (post Phase A2). Scikit-learn pipeline. Model artefacts stored in /models/ (versioned). Served via MLModelService.
+A4	Prescriptive Optimisation	Automated assignment recommendations with confidence score displayed to supervisor before confirmation. Job escalation engine: if resolution_time_estimate > SLA_threshold → auto-escalate priority. Queue optimisation: sort pending jobs by expected completion impact.	Models from A3 + business rule engine. AssignmentService extended with recommend_worker() method. SLA thresholds configurable in admin settings.
+A5	Visualisation	Plotly Dash embedded dashboards. Interactive filtering by date range, department, category, worker. Exportable charts (PNG/SVG). Infographic-style summary cards for management reporting.	Plotly.js in templates. Pre-computed chart data served from Redis cache. Dash app mounted at /analytics/dashboard.
+A6	Recommendations Engine	Admin-facing recommendation feed: 'Department X has 3 recurring plumbing faults — consider preventive maintenance'. Worker training gap recommendations based on skill vs demand mismatch. Budget forecast: predicted material spend by category for next quarter.	Rule-based engine initially. A3 models feed probabilistic recommendations. Recommendations stored in recommendations table for audit and feedback loop.
+
+9.3 Data Pipeline Design
+•	Training data pipeline: Jupyter notebooks (EDA → Feature Engineering → Model Training → Evaluation) → serialised model artefacts to /models/{model_name}_v{version}.pkl.
+•	Inference pipeline: JobRequest created → AnalyticsService.classify(request) → MLModelService.predict(features) → confidence score stored with request.
+•	Model versioning: each model stored with version number; MLModelService loads the 'current' version from a config table in the database.
+•	Retraining trigger: scheduled Celery task runs monthly; if new training data exceeds 500 records since last training, retraining job is enqueued.
+•	Model lifecycle: draft → staging (A/B test against rule-based) → production (if accuracy > rule-based) → deprecated.
+
+ 
+10. Final Go-Live Readiness Checklist
+Every item must be marked COMPLETE by a named responsible party before production deployment is authorised.
+
+🔐 Security Checklist
+[ ] SEC-01  All secrets externalised to environment variables — no hard-coded credentials in codebase
+[ ] SEC-02  Dedicated least-privilege SQL Server user created and tested
+[ ] SEC-03  TLS certificate installed and HTTPS enforced on Nginx
+[ ] SEC-04  Flask-Talisman HTTP security headers active (verify with securityheaders.com)
+[ ] SEC-05  OWASP ZAP baseline scan: zero HIGH findings
+[ ] SEC-06  Bandit static analysis: zero HIGH severity findings
+[ ] SEC-07  pip-audit: zero CRITICAL/HIGH vulnerabilities
+[ ] SEC-08  Session timeout configured (30-minute inactivity)
+[ ] SEC-09  Rate limiting active on /auth/login (5 req/min)
+[ ] SEC-10  CSRF protection confirmed on all form submissions
+
+⚡ Performance Checklist
+[ ] PERF-01  Redis caching active; dashboard P95 < 500ms at 50 concurrent users
+[ ] PERF-02  All composite indexes applied to database
+[ ] PERF-03  Full-text index on job_requests.description
+[ ] PERF-04  Report generation is asynchronous (Celery task)
+[ ] PERF-05  All list views paginated (page_size=25)
+[ ] PERF-06  SQLAlchemy connection pool configured (pool_size=10, max_overflow=20)
+[ ] PERF-07  Gunicorn configured with 4 workers + 2 threads
+
+🗄️ Data Integrity Checklist
+[ ] DATA-01  Database backup taken before migration
+[ ] DATA-02  All 8 migration scripts applied successfully
+[ ] DATA-03  integrity_check.sql passes with zero violations
+[ ] DATA-04  Status values standardised to UPPER_SNAKE_CASE
+[ ] DATA-05  Role values standardised to lowercase
+[ ] DATA-06  No orphaned materials records (job_id NOT NULL enforced)
+[ ] DATA-07  No orphaned job_requests (submitted_by NOT NULL enforced)
+[ ] DATA-08  Soft delete columns present on all transaction tables
+[ ] DATA-09  Legacy predictions table dropped (CSV archive retained)
+
+✅ Testing Checklist
+[ ] TEST-01  pytest --cov=app --cov-fail-under=80 passes
+[ ] TEST-02  All unit tests green (90%+ service coverage)
+[ ] TEST-03  All integration tests green
+[ ] TEST-04  All E2E critical journey tests green
+[ ] TEST-05  Mobile responsiveness verified at 375px, 768px, 1280px
+[ ] TEST-06  UAT sign-off obtained from MSU stakeholder
+
+📊 Monitoring Checklist
+[ ] MON-01  Prometheus metrics endpoint active (/metrics)
+[ ] MON-02  Grafana dashboards configured (request rate, error rate, DB pool, response time)
+[ ] MON-03  Health check endpoint active (/api/v1/health returns 200)
+[ ] MON-04  Structured JSON logging to stdout (collected by log aggregator)
+[ ] MON-05  Automated daily database backup script tested and scheduled
+[ ] MON-06  Alert rules configured: error rate > 5%, response time > 2s, DB pool > 80%
+
+📄 Documentation Checklist
+[ ] DOC-01  README.md updated with full setup, configuration, and run instructions
+[ ] DOC-02  .env.example complete with all required keys
+[ ] DOC-03  RUNBOOK.md complete (deployment, rollback, incident response)
+[ ] DOC-04  OpenAPI 3.0 specification (docs/api-spec.yaml)
+[ ] DOC-05  CI/CD pipeline documented
+[ ] DOC-06  Database schema ERD updated to reflect final schema
+

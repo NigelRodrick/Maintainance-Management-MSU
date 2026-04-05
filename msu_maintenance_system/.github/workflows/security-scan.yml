@@ -1,0 +1,193 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  bandit-security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit[toml]
+        pip install -r requirements.txt
+    
+    - name: Run Bandit security scan
+      run: |
+        bandit -r app/ -f json -o bandit-report.json || true
+        bandit -r app/ -f txt -o bandit-report.txt || true
+    
+    - name: Upload Bandit reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bandit-reports
+        path: |
+          bandit-report.json
+          bandit-report.txt
+    
+    - name: Check for high severity issues
+      run: |
+        python -c "
+        import json
+        with open('bandit-report.json', 'r') as f:
+            report = json.load(f)
+        
+        high_issues = [r for r in report['results'] if r['issue_severity'] == 'HIGH']
+        if high_issues:
+            print('❌ HIGH severity security issues found:')
+            for issue in high_issues:
+                print(f'  - {issue[\"test_name\"]}: {issue[\"issue_text\"]} in {issue[\"filename\"]}:{issue[\"line_number\"]}')
+            exit(1)
+        else:
+            print('✅ No HIGH severity security issues found')
+        "
+
+  owasp-zap-scan:
+    runs-on: ubuntu-latest
+    needs: bandit-security-scan
+    if: github.event_name == 'schedule' || github.event_name == 'push'
+    
+    services:
+      zap:
+        image: owasp/zap2docker-stable
+        ports:
+          - 8080:8080
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/JSON/core/view/zapVersion/ || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Wait for ZAP to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:8080/JSON/core/view/zapVersion/; do sleep 2; done'
+    
+    - name: Start Flask app for scanning
+      env:
+        SECRET_KEY: test-secret-key
+        DB_SERVER: localhost
+        DB_NAME: test_db
+        ENV: testing
+      run: |
+        python -c "
+import os
+import sys
+sys.path.append('.')
+from app import create_app
+from threading import Thread
+
+app = create_app('testing')
+
+def run_app():
+    app.run(host='0.0.0.0', port=5000, debug=False)
+
+# Run app in background thread
+thread = Thread(target=run_app)
+thread.daemon = True
+thread.start()
+
+# Wait for app to start
+import time
+time.sleep(5)
+print('Flask app is running on http://localhost:5000')
+" &
+    
+    - name: Wait for Flask app
+      run: sleep 10
+    
+    - name: Run OWASP ZAP baseline scan
+      run: |
+        python scripts/zap_security_scan.py --target http://localhost:5000 --zap-host localhost --zap-port 8080
+    
+    - name: Upload ZAP reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: zap-reports
+        path: zap_security_report_*.json
+    
+    - name: Check ZAP results
+      run: |
+        python -c "
+import json
+import glob
+import os
+
+# Find the latest ZAP report
+reports = glob.glob('zap_security_report_*.json')
+if not reports:
+    print('❌ No ZAP reports found')
+    exit(1)
+
+latest_report = max(reports, key=os.path.getctime)
+with open(latest_report, 'r') as f:
+    report = json.load(f)
+
+summary = report.get('summary', {})
+high_risks = summary.get('high_risks', 0)
+medium_risks = summary.get('medium_risks', 0)
+
+print(f'ZAP Scan Results:')
+print(f'  High Risk Issues: {high_risks}')
+print(f'  Medium Risk Issues: {medium_risks}')
+
+if high_risks > 0:
+    print('❌ HIGH risk security issues found - scan FAILED')
+    # Show high risk issues
+    alerts = report.get('alerts', [])
+    high_alerts = [a for a in alerts if a.get('risk', '').lower() == 'high']
+    for alert in high_alerts:
+        print(f'  - {alert.get(\"alert\", \"Unknown\")}: {alert.get(\"description\", \"No description\")}')
+    exit(1)
+else:
+    print('✅ No HIGH risk security issues found - scan PASSED')
+"
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Run Dependency Check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'msu-maintenance-system'
+        path: '.'
+        format: 'HTML'
+    
+    - name: Upload Dependency Check Report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-check-report
+        path: reports/dependency-check-report.html

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: msu-maintenance
+  labels:
+    name: msu-maintenance
+    environment: production

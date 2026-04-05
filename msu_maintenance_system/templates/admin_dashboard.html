@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <h1>🔧 Admin Maintenance Dashboard</h1>
+    <p>Manage and monitor all maintenance requests across campus</p>
+    <div class="role-indicator">
+        <span class="badge" style="background: var(--primary-color); color: white;">{{ user_role|title }} Access</span>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+{% if stats %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-content">
+            <h4>{{ stats.total_jobs or 0 }}</h4>
+            <p>Total Requests</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--warning-color);">⏳</div>
+        <div class="stat-content">
+            <h4>{{ stats.pending_jobs or 0 }}</h4>
+            <p>Pending</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--info-color);">🔨</div>
+        <div class="stat-content">
+            <h4>{{ stats.in_progress_jobs or 0 }}</h4>
+            <p>In Progress</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--success-color);">✅</div>
+        <div class="stat-content">
+            <h4>{{ stats.completed_jobs or 0 }}</h4>
+            <p>Completed</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header">
+        <h3>🚀 Admin Actions</h3>
+    </div>
+    <div class="card-body">
+        <div class="action-buttons" style="display: flex; gap: var(--spacing-4); flex-wrap: wrap;">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                <span>➕</span> Submit New Request
+            </a>
+            <a href="{{ url_for('reports.reports') }}" class="btn btn-secondary">
+                <span>📊</span> View Reports
+            </a>
+            <a href="{{ url_for('analytics.analytics_dashboard') }}" class="btn btn-outline">
+                <span>📈</span> Analytics
+            </a>
+            <button onclick="window.print()" class="btn btn-outline">
+                <span>🖨️</span> Print Dashboard
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Job Requests Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 id="assignments">All Maintenance Requests</h3>
+        <div class="table-info">
+            <span class="badge">{{ jobs|length if jobs else 0 }} Total Requests</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if jobs %}
+        <div class="table-container">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Department</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr class="job-row">
+                        <td><strong>#{{ job.id }}</strong></td>
+                        <td>{{ job.department }}</td>
+                        <td>
+                            <div class="description-cell">
+                                {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="category-badge category-{{ job.category|lower }}">
+                                {{ job.category }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="priority-badge priority-{{ job.priority|lower }}">
+                                {{ job.priority }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="status-cell">
+                                <span class="status-badge status-{{ job.status|lower|replace(' ', '_') }}" 
+                                      style="background-color: {{ STATUS_COLORS.get(job.status, '#6c757d') }}; color: white;">
+                                    {{ STATUS_ICONS.get(job.status, '📋') }} {{ job.status.replace('_', ' ') }}
+                                </span>
+                                {% if job.updated_at and job.updated_at != job.date_created %}
+                                <br><small class="text-muted">Updated: {{ job.updated_at.strftime('%m/%d %H:%M') if job.updated_at else '' }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="date-cell">
+                                {{ job.date_created.strftime('%b %d, %Y') if job.date_created else 'N/A' }}
+                                <br>
+                                <small>{{ job.date_created.strftime('%H:%M') if job.date_created else '' }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <!-- Status Update Dropdown -->
+                                <form method="POST" action="{{ url_for('main.update_job_status', job_id=job.id) }}" 
+                                      style="display: inline;" onsubmit="return confirm('Update job #{{ job.id }} status?')">
+                                    <select name="status" class="form-select form-select-sm" 
+                                            style="width: auto; display: inline-block; margin-right: 5px;">
+                                        {% set current_status = job.status %}
+                                        <option value="{{ current_status }}" selected>{{ current_status.replace('_', ' ') }}</option>
+                                        {% if current_status == 'PENDING' %}
+                                        <option value="IN_PROGRESS">⚡ In Progress</option>
+                                        {% if user_role in ['admin', 'supervisor'] %}
+                                        <option value="COMPLETED">✅ Completed</option>
+                                        {% endif %}
+                                        {% elif current_status == 'IN_PROGRESS' %}
+                                        <option value="COMPLETED">✅ Completed</option>
+                                        {% if user_role in ['admin', 'supervisor'] %}
+                                        <option value="PENDING">⏳ Pending</option>
+                                        {% endif %}
+                                        {% elif current_status == 'COMPLETED' %}
+                                        {% if user_role in ['admin', 'supervisor'] %}
+                                        <option value="PENDING">⏳ Reopen</option>
+                                        <option value="IN_PROGRESS">🔧 In Progress</option>
+                                        {% endif %}
+                                        {% endif %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        🔄 Update
+                                    </button>
+                                </form>
+                                
+                                <!-- Existing Actions -->
+                                {% if job.status == 'PENDING' %}
+                                <a href="{{ url_for('main.assign', job_id=job.id) }}" class="btn btn-sm btn-primary">
+                                    👥 Assign
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('main.materials', job_id=job.id) }}" class="btn btn-sm btn-outline">
+                                    🔧 Materials
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No Maintenance Requests</h3>
+            <p>There are currently no maintenance requests in the system.</p>
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                ➕ Submit First Request
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Materials Section -->
+<div class="card" id="materials">
+    <div class="card-header">
+        <h3>🔧 Recent Materials Usage</h3>
+        <a href="{{ url_for('reports.reports') }}" class="btn btn-sm btn-outline">View Full Report</a>
+    </div>
+    <div class="card-body">
+        <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h3>Material Tracking</h3>
+            <p>View detailed material usage reports in the Reports section.</p>
+            <a href="{{ url_for('reports.reports') }}" class="btn btn-secondary">
+                📊 View Reports
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.role-indicator {
+    margin-top: var(--spacing-4);
+}
+
+.description-cell {
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+.date-cell {
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+}
+
+.date-cell small {
+    color: var(--gray-500);
+}
+
+.table-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}

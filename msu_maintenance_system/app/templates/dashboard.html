@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Welcome to the Dashboard</h1>
+        <p>MSU Maintenance Management System - Central Services</p>
+    </div>
+    
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <h3>Total Jobs</h3>
+            <div class="stat-number">{{ total_jobs or 0 }}</div>
+            <div class="stat-label">Active maintenance requests</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Pending Jobs</h3>
+            <div class="stat-number">{{ pending_jobs or 0 }}</div>
+            <div class="stat-label">Awaiting assignment</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>In Progress</h3>
+            <div class="stat-number">{{ in_progress_jobs or 0 }}</div>
+            <div class="stat-label">Currently being worked on</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Completed</h3>
+            <div class="stat-number">{{ completed_jobs or 0 }}</div>
+            <div class="stat-label">Finished this month</div>
+        </div>
+    </div>
+    
+    <div class="dashboard-actions">
+        <div class="action-card">
+            <h3>Quick Actions</h3>
+            <ul>
+                <li><a href="{{ url_for('user.submit_job') }}" class="btn">Submit New Job</a></li>
+                <li><a href="{{ url_for('user.my_jobs') }}" class="btn">View My Jobs</a></li>
+                <li><a href="{{ url_for('user.job_history') }}" class="btn">Job History</a></li>
+            </ul>
+        </div>
+        
+        <div class="action-card">
+            <h3>Reports</h3>
+            <ul>
+                <li><a href="{{ url_for('reports.generate') }}" class="btn">Generate Report</a></li>
+                <li><a href="{{ url_for('analytics.index') }}" class="btn">View Analytics</a></li>
+                <li><a href="{{ url_for('admin.dashboard') }}" class="btn">Admin Panel</a></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="dashboard-recent">
+        <h3>Recent Activity</h3>
+        <div class="activity-list">
+            {% if recent_activities %}
+                {% for activity in recent_activities %}
+                <div class="activity-item">
+                    <div class="activity-time">{{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                    <div class="activity-description">{{ activity.description }}</div>
+                    <div class="activity-status status-{{ activity.status }}">{{ activity.status }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No recent activity to display.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.dashboard-header h1 {
+    color: #003366;
+    margin-bottom: 10px;
+}
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    color: #666;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: bold;
+    color: #004080;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 12px;
+}
+
+.dashboard-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.action-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.action-card h3 {
+    color: #003366;
+    margin-bottom: 15px;
+}
+
+.action-card ul {
+    list-style: none;
+    padding: 0;
+}
+
+.action-card li {
+    margin-bottom: 10px;
+}
+
+.action-card .btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+.dashboard-recent {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.dashboard-recent h3 {
+    color: #003366;
+    margin-bottom: 20px;
+}
+
+.activity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-time {
+    color: #666;
+    font-size: 12px;
+    min-width: 120px;
+}
+
+.activity-description {
+    flex: 1;
+    margin: 0 20px;
+}
+
+.activity-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-in-progress {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+@media (max-width: 768px) {
+    .dashboard-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .dashboard-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .activity-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .activity-time {
+        margin-bottom: 5px;
+    }
+    
+    .activity-description {
+        margin: 0 0 5px 0;
+    }
+}
+</style>
+{% endblock %}

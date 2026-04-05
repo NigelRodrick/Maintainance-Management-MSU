@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MSU Maintenance System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">🔧</div>
+                <h2>MSU Maintenance System</h2>
+                <p>Central Services Amenities & Maintenance</p>
+                <p class="subtitle">Please login with your staff credentials</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {% if category == 'success' %}✅{% elif category == 'error' %}❌{% elif category == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="login-form">
+                <div class="form-group">
+                    <label for="email">📧 MSU Staff Email</label>
+                    <input type="email" 
+                           id="email" 
+                           name="email" 
+                           placeholder="xxxxxxxxxx@staff.msu.ac.zw" 
+                           required 
+                           pattern="[a-zA-Z0-9]+@staff\.msu\.ac\.zw"
+                           title="Please enter a valid MSU staff email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">🔑 Password</label>
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Enter your password" 
+                           required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">🚀 Login</button>
+            </form>
+
+            <div class="login-footer">
+                <p><strong>Email Format:</strong> xxxxxxxxxx@staff.msu.ac.zw</p>
+                <p class="system-info">Data-Driven Maintenance Management System</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

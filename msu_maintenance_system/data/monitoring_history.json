@@ -1,0 +1,33 @@
+{
+  "metrics": [],
+  "predictions": [
+    {
+      "timestamp": "2026-03-29T21:30:45.369424",
+      "prediction": "1",
+      "probability": 0.6718586985346318,
+      "features": {
+        "priority": 3,
+        "category": "Plumbing",
+        "assigned_to": "John Doe",
+        "created_hour": 21,
+        "created_day_of_week": 6,
+        "description_length": 37,
+        "is_urgent": 1
+      }
+    },
+    {
+      "timestamp": "2026-03-29T21:30:45.373789",
+      "prediction": "1",
+      "probability": 0.7884259212860296,
+      "features": {
+        "priority": 1,
+        "category": "Painting",
+        "assigned_to": "Jane Smith",
+        "created_hour": 21,
+        "created_day_of_week": 6,
+        "description_length": 25,
+        "is_urgent": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msu-maintenance-celery-beat
+  namespace: msu-maintenance
+  labels:
+    app: msu-maintenance
+    component: celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msu-maintenance
+      component: celery-beat
+  template:
+    metadata:
+      labels:
+        app: msu-maintenance
+        component: celery-beat
+    spec:
+      containers:
+      - name: celery-beat
+        image: msu-maintenance:latest
+        command: ["celery", "-A", "app.tasks", "beat", "--loglevel=info"]
+        envFrom:
+        - configMapRef:
+            name: msu-maintenance-config
+        - secretRef:
+            name: msu-maintenance-secrets
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+      imagePullSecrets:
+      - name: registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msu-maintenance-celery-beat-service
+  namespace: msu-maintenance
+  labels:
+    app: msu-maintenance
+    component: celery-beat
+spec:
+  selector:
+    app: msu-maintenance
+    component: celery-beat
+  ports:
+  - name: beat
+    port: 5556
+    targetPort: 5556
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <h1>📋 My Maintenance Dashboard</h1>
+    <p>Track your maintenance requests and their status</p>
+    <div class="role-indicator">
+        <span class="badge" style="background: var(--secondary-color); color: white;">{{ user_role|title }} Access</span>
+    </div>
+</div>
+
+<!-- User Welcome Card -->
+<div class="card welcome-card">
+    <div class="card-header">
+        <h3>👋 Welcome back!</h3>
+    </div>
+    <div class="card-body">
+        <div class="welcome-content">
+            <div class="welcome-text">
+                <h4>Submit and Track Your Maintenance Requests</h4>
+                <p>Use this dashboard to submit new maintenance requests and monitor the progress of your existing ones.</p>
+            </div>
+            <div class="welcome-actions">
+                <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-lg">
+                    <span>➕</span> Submit New Request
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+{% if stats %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-content">
+            <h4>{{ stats.total_jobs or 0 }}</h4>
+            <p>My Requests</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--warning-color);">⏳</div>
+        <div class="stat-content">
+            <h4>{{ stats.pending_jobs or 0 }}</h4>
+            <p>Pending</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--info-color);">🔨</div>
+        <div class="stat-content">
+            <h4>{{ stats.in_progress_jobs or 0 }}</h4>
+            <p>In Progress</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--success-color);">✅</div>
+        <div class="stat-content">
+            <h4>{{ stats.completed_jobs or 0 }}</h4>
+            <p>Completed</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header">
+        <h3>🚀 Quick Actions</h3>
+    </div>
+    <div class="card-body">
+        <div class="action-buttons" style="display: flex; gap: var(--spacing-4); flex-wrap: wrap;">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                <span>➕</span> Submit New Request
+            </a>
+            <button onclick="window.print()" class="btn btn-outline">
+                <span>🖨️</span> Print My Requests
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">
+                <span>🚪</span> Logout
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- My Requests Table -->
+<div class="card">
+    <div class="card-header">
+        <h3>📋 My Maintenance Requests</h3>
+        <div class="table-info">
+            <span class="badge">{{ jobs|length if jobs else 0 }} My Requests</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if jobs %}
+        <div class="table-container">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Department</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr class="job-row">
+                        <td><strong>#{{ job.id }}</strong></td>
+                        <td>{{ job.department }}</td>
+                        <td>
+                            <div class="description-cell">
+                                {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="category-badge category-{{ job.category|lower }}">
+                                {{ job.category }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="priority-badge priority-{{ job.priority|lower }}">
+                                {{ job.priority }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ job.status|lower|replace(' ', '-') }}">
+                                {{ job.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="date-cell">
+                                {{ job.date_created.strftime('%b %d, %Y') if job.date_created else 'N/A' }}
+                                <br>
+                                <small>{{ job.date_created.strftime('%H:%M') if job.date_created else '' }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{{ url_for('main.materials', job_id=job.id) }}" class="btn btn-sm btn-outline">
+                                    🔧 View Details
+                                </a>
+                                {% if job.status == 'Completed' %}
+                                <button class="btn btn-sm btn-success" disabled>
+                                    ✅ Completed
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No Maintenance Requests Yet</h3>
+            <p>You haven't submitted any maintenance requests. Get started by submitting your first request!</p>
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                ➕ Submit First Request
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Help and Support -->
+<div class="card">
+    <div class="card-header">
+        <h3>💡 Need Help?</h3>
+    </div>
+    <div class="card-body">
+        <div class="help-grid">
+            <div class="help-item">
+                <div class="help-icon">📝</div>
+                <div class="help-content">
+                    <h4>How to Submit a Request</h4>
+                    <p>Click "Submit New Request" and provide detailed information about the maintenance issue.</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">👁️</div>
+                <div class="help-content">
+                    <h4>Track Progress</h4>
+                    <p>Monitor your request status from Pending to In Progress to Completed.</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">📞</div>
+                <div class="help-content">
+                    <h4>Contact Support</h4>
+                    <p>For urgent issues, contact the maintenance department directly.</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">⏰</div>
+                <div class="help-content">
+                    <h4>Response Times</h4>
+                    <p>Typical response time is 24-48 hours for non-urgent requests.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.role-indicator {
+    margin-top: var(--spacing-4);
+}
+
+.welcome-card {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
+    border: none;
+}
+
+.welcome-card .card-header {
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.welcome-card .card-header h3 {
+    color: white;
+}
+
+.welcome-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-6);
+}
+
+.welcome-text h4 {
+    color: white;
+    margin-bottom: var(--spacing-2);
+}
+
+.welcome-text p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: var(--font-size-lg);
+}
+
+.welcome-actions .btn-primary {
+    background: white;
+    color: var(--primary-color);
+}
+
+.welcome-actions .btn-primary:hover {
+    background: var(--gray-50);
+}
+
+.description-cell {
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+.date-cell {
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+}
+
+.date-cell small {
+    color: var(--gray-500);
+}
+
+.table-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+.help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-6);
+}
+
+.help-item {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: flex-start;
+}
+
+.help-icon {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+}
+
+.help-content h4 {
+    color: var(--gray-800);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin-bottom: var(--spacing-1);
+}
+
+.help-content p {
+    color: var(--gray-600);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .welcome-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .help-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MSU Maintenance System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="brand-header">
+                    <div class="brand-icon">🔧</div>
+                    <div class="brand-text">
+                        <h3>MSU Maintenance</h3>
+                        <span class="brand-subtitle">Central Services</span>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <span class="user-email">{{ current_user.email }}</span>
+                    <span class="user-role">{{ current_user.role|title }}</span>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('main.dashboard') }}" class="nav-link">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="{{ url_for('main.index') }}" class="nav-link">
+                    <span class="nav-icon">➕</span>
+                    <span class="nav-text">Submit Request</span>
+                </a>
+                
+                {% if current_user.role in ['admin', 'supervisor'] %}
+                <div class="nav-dropdown">
+                    <button class="nav-link dropdown-toggle">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-text">Manage</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('main.dashboard') }}#assignments">Assign Jobs</a>
+                        <a href="{{ url_for('main.dashboard') }}#materials">Materials</a>
+                        <a href="{{ url_for('analytics.get_dashboard') }}">Analytics</a>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if current_user.role in ['admin', 'supervisor'] %}
+                <div class="nav-dropdown">
+                    <button class="nav-link dropdown-toggle">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-text">Analytics</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('analytics.analytics_dashboard') }}">Overview</a>
+                        <a href="{{ url_for('analytics.get_worker_performance') }}">Performance</a>
+                        <a href="{{ url_for('analytics.get_job_trends') }}">Trends</a>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if current_user.role in ['admin', 'supervisor'] %}
+                <div class="nav-dropdown">
+                    <button class="nav-link dropdown-toggle">
+                        <span class="nav-icon">📋</span>
+                        <span class="nav-text">Reports</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('reports.reports') }}">View Reports</a>
+                        <a href="{{ url_for('reports.generate_report') }}" onclick="return confirm('Generate new comprehensive report?')">Generate Report</a>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <a href="{{ url_for('auth.logout') }}" class="nav-link logout">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Logout</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} fade-in">
+                            <div class="alert-content">
+                                <span class="alert-icon">
+                                    {% if category == 'success' %}✅{% elif category == 'error' %}❌{% elif category == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="alert-message">{{ message }}</span>
+                                <button class="alert-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% if current_user.is_authenticated %}
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Midlands State University - Central Services Amenities & Maintenance</p>
+            <p class="footer-version">Version 2.0 | Professional Edition</p>
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Loading state management
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+        
+        // Form submission with loading
+        document.addEventListener('DOMContentLoaded', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    showLoading();
+                });
+            });
+        });
+        
+        // Auto-hide flash messages
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

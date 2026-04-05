@@ -1,0 +1,733 @@
+<!-- Notification Bell UI Component -->
+<!-- Bootstrap 5 responsive notification bell with dropdown -->
+
+<div class="position-relative">
+    <!-- Notification Bell Icon -->
+    <button class="btn btn-outline-secondary position-relative" type="button" id="notificationDropdown" 
+            data-bs-toggle="dropdown" aria-expanded="false" 
+            aria-label="Notifications" title="Notifications">
+        <i class="bi bi-bell"></i>
+        
+        <!-- Unread Count Badge -->
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+              id="notificationBadge" style="display: none;">
+            <span id="notificationCount">0</span>
+        </span>
+    </button>
+    
+    <!-- Notification Dropdown -->
+    <div class="dropdown-menu dropdown-menu-end dropdown-menu-lg p-0 shadow" 
+         aria-labelledby="notificationDropdown" id="notificationDropdownMenu">
+        
+        <!-- Dropdown Header -->
+        <div class="dropdown-header d-flex justify-content-between align-items-center py-2 px-3">
+            <h6 class="mb-0">Notifications</h6>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                        id="markAllReadBtn" title="Mark all as read">
+                    <i class="bi bi-check2"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                        id="notificationSettingsBtn" title="Notification settings">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="notificationLoading" class="text-center py-3">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        
+        <!-- No Notifications State -->
+        <div id="noNotifications" class="text-center py-3" style="display: none;">
+            <i class="bi bi-bell-slash text-muted fs-4"></i>
+            <p class="text-muted mb-0">No notifications</p>
+        </div>
+        
+        <!-- Notifications List -->
+        <div id="notificationsList" class="notifications-list" style="display: none;">
+            <!-- Notifications will be loaded here dynamically -->
+        </div>
+        
+        <!-- Dropdown Footer -->
+        <div class="dropdown-footer py-2 px-3 border-top">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="/notifications" class="btn btn-sm btn-outline-primary">View All</a>
+                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                        id="clearNotificationsBtn">Clear All</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Settings Modal -->
+<div class="modal fade" id="notificationSettingsModal" tabindex="-1" aria-labelledby="notificationSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notificationSettingsModalLabel">Notification Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="notificationSettingsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Choose which notifications you want to receive:</label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="JOB_ASSIGNED" id="prefJobAssigned" checked>
+                        <label class="form-check-label" for="prefJobAssigned">
+                            Job Assignments
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="JOB_STATUS_CHANGED" id="prefJobStatusChanged" checked>
+                        <label class="form-check-label" for="prefJobStatusChanged">
+                            Job Status Changes
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="MATERIAL_SHORTAGE" id="prefMaterialShortage" checked>
+                        <label class="form-check-label" for="prefMaterialShortage">
+                            Material Shortages
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="ASSIGNMENT_COMPLETED" id="prefAssignmentCompleted" checked>
+                        <label class="form-check-label" for="prefAssignmentCompleted">
+                            Assignment Completions
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="SYSTEM_ALERT" id="prefSystemAlert" checked>
+                        <label class="form-check-label" for="prefSystemAlert">
+                            System Alerts
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" value="REMINDER" id="prefReminder" checked>
+                        <label class="form-check-label" for="prefReminder">
+                            Reminders
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email Notifications:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="emailNotificationsEnabled">
+                            <label class="form-check-label" for="emailNotificationsEnabled">
+                                Enable email notifications
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNotificationSettings">Save Settings</button>
+            </div>
+</div>
+
+<style>
+/* Notification Bell Styles */
+.notification-bell {
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notification-bell:hover {
+    transform: scale(1.1);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* Notifications Dropdown Styles */
+.notifications-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item.unread {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+}
+
+.notification-item.read {
+    opacity: 0.8;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.notification-message {
+    color: #666;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.notification-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.notification-type {
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.notification-type.JOB_ASSIGNED {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.notification-type.JOB_STATUS_CHANGED {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.notification-type.MATERIAL_SHORTAGE {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+.notification-type.ASSIGNMENT_COMPLETED {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.notification-type.SYSTEM_ALERT {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.notification-type.REMINDER {
+    background-color: #f1f8e9;
+    color: #689f38;
+}
+
+.notification-action {
+    margin-top: 8px;
+}
+
+.notification-action .btn {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dropdown-menu-lg {
+        min-width: 280px;
+        max-width: 90vw;
+    }
+    
+    .notification-item {
+        padding: 10px 12px;
+    }
+    
+    .notification-title {
+        font-size: 0.85rem;
+    }
+    
+    .notification-message {
+        font-size: 0.8rem;
+    }
+}
+
+/* Animation Classes */
+@keyframes bellRing {
+    0%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-10deg); }
+    50% { transform: rotate(5deg); }
+    60% { transform: rotate(-5deg); }
+    70% { transform: rotate(2deg); }
+    80% { transform: rotate(-2deg); }
+    90% { transform: rotate(1deg); }
+}
+
+.notification-bell.ring {
+    animation: bellRing 1s ease-in-out;
+}
+
+/* Accessibility */
+.notification-bell:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.notification-item:focus {
+    outline: 2px solid #007bff;
+    outline-offset: -2px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .notification-item {
+        border-bottom-color: #495057;
+    }
+    
+    .notification-item:hover {
+        background-color: #343a40;
+    }
+    
+    .notification-item.unread {
+        background-color: #1e3a5f;
+    }
+    
+    .notification-title {
+        color: #fff;
+    }
+    
+    .notification-message {
+        color: #adb5bd;
+    }
+    
+    .notification-meta {
+        color: #6c757d;
+    }
+}
+</style>
+
+<script>
+// Notification Bell JavaScript
+class NotificationBell {
+    constructor() {
+        this.userId = null;
+        this.notifications = [];
+        this.unreadCount = 0;
+        this.dropdown = null;
+        this.badge = null;
+        this.countElement = null;
+        this.listElement = null;
+        this.loadingElement = null;
+        this.noNotificationsElement = null;
+        
+        this.init();
+    }
+    
+    init() {
+        // Get DOM elements
+        this.dropdown = document.getElementById('notificationDropdown');
+        this.badge = document.getElementById('notificationBadge');
+        this.countElement = document.getElementById('notificationCount');
+        this.listElement = document.getElementById('notificationsList');
+        this.loadingElement = document.getElementById('notificationLoading');
+        this.noNotificationsElement = document.getElementById('noNotifications');
+        
+        // Get current user ID (this should be passed from the template)
+        this.userId = window.currentUserId || 1;
+        
+        // Initialize event listeners
+        this.setupEventListeners();
+        
+        // Load initial notifications
+        this.loadNotifications();
+        
+        // Set up periodic refresh
+        setInterval(() => this.loadNotifications(), 30000); // Refresh every 30 seconds
+    }
+    
+    setupEventListeners() {
+        // Dropdown shown event
+        this.dropdown.addEventListener('shown.bs.dropdown', () => {
+            this.loadNotifications();
+        });
+        
+        // Mark all as read button
+        document.getElementById('markAllReadBtn').addEventListener('click', () => {
+            this.markAllAsRead();
+        });
+        
+        // Clear notifications button
+        document.getElementById('clearNotificationsBtn').addEventListener('click', () => {
+            this.clearAllNotifications();
+        });
+        
+        // Settings button
+        document.getElementById('notificationSettingsBtn').addEventListener('click', () => {
+            this.showSettings();
+        });
+        
+        // Settings modal save button
+        document.getElementById('saveNotificationSettings').addEventListener('click', () => {
+            this.saveSettings();
+        });
+    }
+    
+    async loadNotifications() {
+        try {
+            this.showLoading();
+            
+            const response = await fetch('/api/v1/notifications', {
+                headers: {
+                    'Authorization': `Bearer ${window.jwtToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.notifications = data.data.notifications;
+                this.unreadCount = data.data.unread_count;
+                
+                this.updateBadge();
+                this.renderNotifications();
+            } else {
+                this.showError();
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+            this.showError();
+        }
+    }
+    
+    updateBadge() {
+        if (this.unreadCount > 0) {
+            this.badge.style.display = 'block';
+            this.countElement.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+        } else {
+            this.badge.style.display = 'none';
+        }
+    }
+    
+    renderNotifications() {
+        this.hideLoading();
+        
+        if (this.notifications.length === 0) {
+            this.showNoNotifications();
+            return;
+        }
+        
+        this.listElement.style.display = 'block';
+        this.noNotificationsElement.style.display = 'none';
+        
+        this.listElement.innerHTML = this.notifications.map(notification => 
+            this.createNotificationHTML(notification)
+        ).join('');
+        
+        // Add click listeners to notification items
+        this.listElement.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const notificationId = item.dataset.notificationId;
+                this.handleNotificationClick(notificationId, item);
+            });
+        });
+    }
+    
+    createNotificationHTML(notification) {
+        const createdAt = new Date(notification.created_at);
+        const timeAgo = this.getTimeAgo(createdAt);
+        const unreadClass = notification.is_read ? 'read' : 'unread';
+        
+        return `
+            <div class="notification-item ${unreadClass}" data-notification-id="${notification.id}">
+                <div class="notification-content">
+                    <div class="notification-title">${notification.title}</div>
+                    <div class="notification-message">${notification.message}</div>
+                    <div class="notification-meta">
+                        <span class="notification-type ${notification.notification_type}">${notification.notification_type.replace('_', ' ')}</span>
+                        <span class="notification-time">${timeAgo}</span>
+                    </div>
+                    ${notification.action_url ? `
+                        <div class="notification-action">
+                            <a href="${notification.action_url}" class="btn btn-sm btn-outline-primary">
+                                ${notification.action_text || 'View'}
+                            </a>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+        
+        return date.toLocaleDateString();
+    }
+    
+    async handleNotificationClick(notificationId, element) {
+        try {
+            // Mark as read if unread
+            if (element.classList.contains('unread')) {
+                await this.markAsRead(notificationId);
+                element.classList.remove('unread');
+                element.classList.add('read');
+                
+                // Update unread count
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+                this.updateBadge();
+            }
+        } catch (error) {
+            console.error('Error handling notification click:', error);
+        }
+    }
+    
+    async markAsRead(notificationId) {
+        try {
+            const response = await fetch(`/api/v1/notifications/${notificationId}/read`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${window.jwtToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to mark notification as read');
+            }
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    }
+    
+    async markAllAsRead() {
+        try {
+            const response = await fetch('/api/v1/notifications/mark-all-read', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${window.jwtToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                // Update UI
+                this.notifications.forEach(notification => {
+                    notification.is_read = true;
+                });
+                this.unreadCount = 0;
+                this.updateBadge();
+                this.renderNotifications();
+                
+                // Show success message
+                this.showSuccess('All notifications marked as read');
+            } else {
+                this.showError('Failed to mark all notifications as read');
+            }
+        } catch (error) {
+            console.error('Error marking all notifications as read:', error);
+            this.showError('Failed to mark all notifications as read');
+        }
+    }
+    
+    async clearAllNotifications() {
+        if (!confirm('Are you sure you want to clear all notifications?')) {
+            return;
+        }
+        
+        try {
+            const notificationIds = this.notifications.map(n => n.id);
+            
+            const response = await fetch('/api/v1/notifications/batch', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${window.jwtToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    notification_ids: notificationIds,
+                    action: 'delete'
+                })
+            });
+            
+            if (response.ok) {
+                this.notifications = [];
+                this.unreadCount = 0;
+                this.updateBadge();
+                this.renderNotifications();
+                
+                this.showSuccess('All notifications cleared');
+            } else {
+                this.showError('Failed to clear notifications');
+            }
+        } catch (error) {
+            console.error('Error clearing notifications:', error);
+            this.showError('Failed to clear notifications');
+        }
+    }
+    
+    showSettings() {
+        // Load current preferences and show modal
+        this.loadNotificationPreferences();
+        
+        const modal = new bootstrap.Modal(document.getElementById('notificationSettingsModal'));
+        modal.show();
+    }
+    
+    async loadNotificationPreferences() {
+        try {
+            const response = await fetch('/api/v1/notifications/preferences', {
+                headers: {
+                    'Authorization': `Bearer ${window.jwtToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const preferences = data.data.preferences;
+                
+                // Update form
+                preferences.forEach(pref => {
+                    const checkbox = document.getElementById(`pref${pref.notification_type}`);
+                    if (checkbox) {
+                        checkbox.checked = pref.is_enabled;
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading notification preferences:', error);
+        }
+    }
+    
+    async saveSettings() {
+        try {
+            const preferences = [];
+            
+            // Collect form data
+            document.querySelectorAll('#notificationSettingsForm input[type="checkbox"][value]').forEach(checkbox => {
+                if (checkbox.id.startsWith('pref')) {
+                    preferences.push({
+                        notification_type: checkbox.value,
+                        is_enabled: checkbox.checked
+                    });
+                }
+            });
+            
+            // Update each preference
+            for (const pref of preferences) {
+                const response = await fetch(`/api/v1/notifications/preferences/${pref.notification_type}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${window.jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        is_enabled: pref.is_enabled
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to update preference for ${pref.notification_type}`);
+                }
+            }
+            
+            // Close modal and show success
+            const modal = bootstrap.Modal.getInstance(document.getElementById('notificationSettingsModal'));
+            modal.hide();
+            
+            this.showSuccess('Notification settings saved successfully');
+        } catch (error) {
+            console.error('Error saving notification settings:', error);
+            this.showError('Failed to save notification settings');
+        }
+    }
+    
+    showLoading() {
+        this.loadingElement.style.display = 'block';
+        this.listElement.style.display = 'none';
+        this.noNotificationsElement.style.display = 'none';
+    }
+    
+    hideLoading() {
+        this.loadingElement.style.display = 'none';
+    }
+    
+    showNoNotifications() {
+        this.hideLoading();
+        this.listElement.style.display = 'none';
+        this.noNotificationsElement.style.display = 'block';
+    }
+    
+    showError(message) {
+        // Show error message (implement toast or alert)
+        console.error(message);
+    }
+    
+    showSuccess(message) {
+        // Show success message (implement toast or alert)
+        console.log(message);
+    }
+    
+    // Public method to trigger bell ring animation
+    ring() {
+        const bellIcon = this.dropdown.querySelector('i');
+        bellIcon.classList.add('ring');
+        
+        setTimeout(() => {
+            bellIcon.classList.remove('ring');
+        }, 1000);
+    }
+}
+
+// Initialize notification bell when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.notificationBell = new NotificationBell();
+});
+
+// Global function to trigger notification bell from other parts of the application
+function triggerNotificationBell() {
+    if (window.notificationBell) {
+        window.notificationBell.ring();
+        window.notificationBell.loadNotifications();
+    }
+}
+</script>

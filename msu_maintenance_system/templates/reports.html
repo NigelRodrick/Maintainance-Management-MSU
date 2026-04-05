@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - MSU Maintenance System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📋 Maintenance Reports</h1>
+    <p>Generate and download comprehensive maintenance reports</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Available Reports</h3>
+        <form method="POST" action="{{ url_for('reports.generate_report') }}" style="display: inline;">
+            <button type="submit" class="btn btn-primary">🔄 Generate New Report</button>
+        </form>
+    </div>
+    
+    <div class="card-body">
+        {% if reports %}
+            <div class="report-list">
+                {% for report in reports %}
+                    <div class="report-item">
+                        <div class="report-info">
+                            <h4>📊 {{ report }}</h4>
+                            <p>Comprehensive maintenance report with jobs, assignments, materials, and analytics</p>
+                        </div>
+                        <div class="report-actions">
+                            <a href="{{ url_for('reports.download_report', filename=report) }}" class="btn btn-success">⬇️ Download</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h3>No Reports Available</h3>
+                <p>Generate your first comprehensive maintenance report to get started.</p>
+                <form method="POST" action="{{ url_for('reports.generate_report') }}">
+                    <button type="submit" class="btn btn-primary">🚀 Generate First Report</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>📈 Report Analytics</h3>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <h4>{{ reports|length if reports else 0 }}</h4>
+                    <p>Total Reports</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-content">
+                    <h4>{{ reports[0].split('_')[2:4] if reports else 'N/A' }}</h4>
+                    <p>Latest Report</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📋</div>
+                <div class="stat-content">
+                    <h4>4 Sheets</h4>
+                    <p>Per Report</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>📋 Report Contents</h3>
+    </div>
+    <div class="card-body">
+        <div class="report-contents">
+            <div class="content-item">
+                <h4>📝 Jobs Sheet</h4>
+                <p>Complete list of maintenance requests with status, category, and priority information</p>
+            </div>
+            <div class="content-item">
+                <h4>👥 Assignments Sheet</h4>
+                <p>Worker assignments with timestamps and job details for performance tracking</p>
+            </div>
+            <div class="content-item">
+                <h4>🔧 Materials Sheet</h4>
+                <p>Material usage tracking with quantities and job associations</p>
+            </div>
+            <div class="content-item">
+                <h4>📊 Summary Sheet</h4>
+                <p>Aggregated statistics, completion rates, worker performance, and material summaries</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
