@@ -4,7 +4,6 @@ Custom error handlers for HTTP status codes.
 """
 
 from flask import jsonify, render_template
-from flask_jwt_extended import JWTManager
 
 
 def register_error_handlers(app):
@@ -108,40 +107,6 @@ def register_error_handlers(app):
                 'message': 'Service temporarily unavailable'
             }), 503
         return render_template('errors/503.html', error=error), 503
-    
-    # JWT error handlers
-    @jwt.expired_token_loader
-    def expired_token_callback(jwt_header, jwt_payload):
-        """Handle expired JWT tokens."""
-        if request_wants_json():
-            return jsonify({
-                'success': False,
-                'error': 'Token expired',
-                'message': 'Authentication token has expired'
-            }), 401
-        return render_template('errors/401.html', error="Token expired"), 401
-    
-    @jwt.invalid_token_loader
-    def invalid_token_callback(error):
-        """Handle invalid JWT tokens."""
-        if request_wants_json():
-            return jsonify({
-                'success': False,
-                'error': 'Invalid token',
-                'message': 'Invalid authentication token'
-            }), 401
-        return render_template('errors/401.html', error="Invalid token"), 401
-    
-    @jwt.unauthorized_loader
-    def missing_token_callback(error):
-        """Handle missing JWT tokens."""
-        if request_wants_json():
-            return jsonify({
-                'success': False,
-                'error': 'Token required',
-                'message': 'Authentication token is required'
-            }), 401
-        return render_template('errors/401.html', error="Token required"), 401
 
 
 def request_wants_json():

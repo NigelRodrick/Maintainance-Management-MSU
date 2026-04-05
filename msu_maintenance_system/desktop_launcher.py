@@ -5,12 +5,17 @@ Sets writable data dirs and serves the app with Waitress (no Flask dev server).
 from __future__ import annotations
 
 import os
+import socket
 import sys
 import threading
 import webbrowser
 
 
 def _prepare_environment() -> None:
+    # Before any app import: services/__init__.py pulls in matplotlib via analytics_service.
+    # Non-GUI backend avoids immediate exit when the frozen .exe has no display / wrong Tk.
+    os.environ.setdefault("MPLBACKEND", "Agg")
+
     if getattr(sys, "frozen", False):
         base = sys._MEIPASS
         os.chdir(base)
@@ -34,6 +39,20 @@ def _prepare_environment() -> None:
     )
     os.makedirs(os.environ["MSU_INSTANCE_DIR"], exist_ok=True)
     os.makedirs(os.environ["MSU_REPORTS_DIR"], exist_ok=True)
+
+
+def _find_listen_port(preferred: int, attempts: int = 40) -> int:
+    """Pick a free loopback port (Windows often blocks 5000 for other services)."""
+    for p in range(preferred, preferred + attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", p))
+                return p
+            except OSError:
+                continue
+    raise RuntimeError(
+        f"No free TCP port in range {preferred}–{preferred + attempts - 1}."
+    )
 
 
 def _seed_sqlite_demo(app) -> None:
@@ -65,9 +84,15 @@ def main() -> None:
 
     config_name = os.environ.get("FLASK_ENV", "development")
     app = create_app(config_name)
+    # Packaged .exe: turn off Flask debug so routes don’t expose the interactive debugger
+    # or confusing “unhandled” tracebacks to the browser.
+    if getattr(sys, "frozen", False):
+        app.config["DEBUG"] = False
+        app.config["PROPAGATE_EXCEPTIONS"] = False
     _seed_sqlite_demo(app)
 
-    port = int(os.environ.get("PORT", "5000"))
+    preferred = int(os.environ.get("PORT", "5000"))
+    port = _find_listen_port(preferred)
     url = f"http://127.0.0.1:{port}"
 
     def _open_browser() -> None:
@@ -80,9 +105,22 @@ def main() -> None:
 
     from waitress import serve
 
-    print(f"MSU Maintenance — {url}  (close this window to stop)")
+    if port != preferred:
+        print(f"Port {preferred} was in use; listening on {port}.", flush=True)
+    print(f"MSU Maintenance — {url}  (close this window to stop)", flush=True)
     serve(app, host="127.0.0.1", port=port, threads=4)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        print("\nThe app stopped because of an error above.", flush=True)
+        try:
+            input("Press Enter to close…")
+        except EOFError:
+            pass
+        raise

@@ -1,5 +1,8 @@
-from flask import Flask
 import os
+
+from flask import Flask, Response
+from werkzeug.exceptions import HTTPException
+
 from config import config
 
 def create_app(config_name='default'):
@@ -87,5 +90,18 @@ def create_app(config_name='default'):
         except Exception as e:
             logger.error(f"Failed to register optional blueprint '{name}': {e}")
             logger.info(f"Continuing without '{name}' blueprint")
-    
+
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(e):
+        """Avoid raw tracebacks in the browser / Waitress; log server-side."""
+        if isinstance(e, HTTPException):
+            return e
+        app.logger.exception("Unhandled exception")
+        html = (
+            "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Error</title></head>"
+            "<body><h1>Something went wrong</h1>"
+            "<p>An unexpected error occurred. Please try again later.</p></body></html>"
+        )
+        return Response(html, status=500, mimetype="text/html")
+
     return app
