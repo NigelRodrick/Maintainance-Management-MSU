@@ -22,7 +22,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Property Id="ALLUSERS" Value="1" />
+    <!-- ALLUSERS is already defined by WixUI_InstallDir; do not duplicate (LGHT0091). -->
 
     <Feature Id="MainFeature" Title="Application" Level="1">
       <ComponentGroupRef Id="HarvestedApp" />
