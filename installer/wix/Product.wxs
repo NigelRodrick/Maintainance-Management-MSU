@@ -38,7 +38,8 @@
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLFOLDER" Name="MSU Maintenance System" />
       </Directory>
-      <Directory Id="ProgramMenuFolder">
+      <!-- All-users Start Menu (matches per-machine install + HKLM KeyPath; avoids ICE38/ICE43/ICE57) -->
+      <Directory Id="CommonProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="MSU Maintenance System" />
       </Directory>
     </Directory>
