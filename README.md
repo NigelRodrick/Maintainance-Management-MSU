@@ -36,6 +36,20 @@ powershell -ExecutionPolicy Bypass -File installer\build_bundle.ps1 -Version 1.0
 
 If Python 3.12 is already installed for all users, the bundle **skips** the Python step and only runs the MSI. Users who rely only on the Microsoft Store Python or a non-standard layout may still get the bundled Python installer; that is usually harmless.
 
+## Windows portable executable (.exe)
+
+Single-file **`MSU_Maintenance.exe`** (PyInstaller) runs the app with **Waitress** and opens the browser. Data is stored under **`%LOCALAPPDATA%\MSUMaintenance`**.
+
+**Local build** (Python 3.10+ on PATH):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\build_exe.ps1
+```
+
+Output: **`dist\MSU_Maintenance.exe`**.
+
+**CI:** GitHub Actions workflow **`build-exe.yml`** uploads the same file as artifact **`msu-maintenance-windows-exe`**.
+
 ## Mobile apps (Android + iOS)
 
 A **Capacitor** WebView shell lives in **`mobile/`**: set **`server.url`** in `mobile/capacitor.config.json` to your **HTTPS** site.

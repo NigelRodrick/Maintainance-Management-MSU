@@ -37,6 +37,7 @@ coverage.xml
 dist/
 build/
 *.egg-info/
+packaging/build/
 
 # WiX / MSI (generated)
 installer/_stage/

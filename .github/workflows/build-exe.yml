@@ -1,0 +1,42 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'msu_maintenance_system/**'
+      - 'packaging/**'
+      - '.github/workflows/build-exe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: packaging/requirements-exe.txt
+
+      - name: Install dependencies and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r packaging/requirements-exe.txt pyinstaller
+
+      - name: Build EXE
+        run: pyinstaller packaging/msu_maintenance.spec --noconfirm
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msu-maintenance-windows-exe
+          path: dist/MSU_Maintenance.exe
+          if-no-files-found: error
