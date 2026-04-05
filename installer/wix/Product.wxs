@@ -7,7 +7,7 @@
       Id="*"
       Name="MSU Maintenance Management System"
       Language="1033"
-      Version="$(var.ProductVersion)"
+      Version="__MSI_VERSION__"
       Manufacturer="Midlands State University"
       UpgradeCode="8D3F1E2A-5C4B-4E9F-8A1D-2E3F4A5B6C7D">
 

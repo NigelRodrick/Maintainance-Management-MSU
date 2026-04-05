@@ -77,25 +77,32 @@ New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 $productWxs = Join-Path $WixDir 'Product.wxs'
 $msiOut = Join-Path $OutDir "MSU_Maintenance_System_$Version.msi"
 
+# Bake version and Heat staging path into .wxs files (avoids candle -d quirks on CI runners).
+$stageResolved = (Resolve-Path $StageRoot).Path
+$productBuild = Join-Path $ObjDir 'Product.build.wxs'
+$heatBuild = Join-Path $ObjDir 'HarvestedFiles.build.wxs'
+
+$pText = [System.IO.File]::ReadAllText($productWxs)
+$pText = $pText.Replace('__MSI_VERSION__', $wixVersion)
+[System.IO.File]::WriteAllText($productBuild, $pText, [System.Text.UTF8Encoding]::new($false))
+
+$hText = [System.IO.File]::ReadAllText($HeatOut)
+$hText = $hText.Replace('$(var.HarvestSource)', $stageResolved)
+[System.IO.File]::WriteAllText($heatBuild, $hText, [System.Text.UTF8Encoding]::new($false))
+
 Write-Host "Compiling ($wixVersion)..."
 Push-Location $ObjDir
 try {
-    # Quote -d args so PowerShell does not pass a literal "$wixVersion" token to candle.exe
-    & $candle -nologo `
-        "-dProductVersion=$wixVersion" `
-        "-dHarvestSource=$StageRoot" `
-        -arch x64 `
-        $productWxs `
-        $HeatOut
+    & $candle -nologo -arch x64 $productBuild $heatBuild
     if ($LASTEXITCODE -ne 0) { throw "candle.exe failed" }
 } finally {
     Pop-Location
 }
 
-$productObj = Join-Path $ObjDir 'Product.wixobj'
-$harvestObj = Join-Path $ObjDir 'HarvestedFiles.wixobj'
+$productObj = Join-Path $ObjDir 'Product.build.wixobj'
+$harvestObj = Join-Path $ObjDir 'HarvestedFiles.build.wixobj'
 if (-not (Test-Path $harvestObj)) {
-    throw "Expected $harvestObj — check Heat output file name."
+    throw "Expected $harvestObj — check candle output names."
 }
 
 Write-Host "Linking MSI..."
