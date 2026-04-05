@@ -37,3 +37,12 @@ coverage.xml
 dist/
 build/
 *.egg-info/
+
+# WiX / MSI (generated)
+installer/_stage/
+installer/wix/HarvestedFiles.wxs
+installer/wix/obj/
+installer/bundle/Bundle.wixobj
+installer/cache/*.exe
+*.wixobj
+*.wixpdb

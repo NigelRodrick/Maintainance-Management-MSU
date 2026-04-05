@@ -5,6 +5,22 @@ _BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 _INSTANCE_DIR = os.path.join(_BASE_DIR, 'instance')
 
 
+def _writable_instance_dir():
+    """SQLite + instance files; use MSU_INSTANCE_DIR when installed under Program Files."""
+    override = os.environ.get('MSU_INSTANCE_DIR')
+    if override:
+        return os.path.abspath(override)
+    return _INSTANCE_DIR
+
+
+def _reports_dir():
+    """Generated Excel reports — writable path when MSU_REPORTS_DIR is set (MSI / Program Files)."""
+    override = os.environ.get('MSU_REPORTS_DIR')
+    if override:
+        return os.path.abspath(override)
+    return os.path.join(_BASE_DIR, 'reports')
+
+
 def _mssql_uri():
     """SQL Server URL (requires pyodbc + ODBC driver on the machine)."""
     db_server = os.environ.get('DB_SERVER', 'localhost')
@@ -23,8 +39,9 @@ def _mssql_uri():
 
 
 def _sqlite_uri():
-    os.makedirs(_INSTANCE_DIR, exist_ok=True)
-    db_path = os.path.join(_INSTANCE_DIR, 'msu_maintenance.db').replace('\\', '/')
+    inst = _writable_instance_dir()
+    os.makedirs(inst, exist_ok=True)
+    db_path = os.path.join(inst, 'msu_maintenance.db').replace('\\', '/')
     return f'sqlite:///{db_path}'
 
 
@@ -60,7 +77,7 @@ class Config:
     BASE_DIR = _BASE_DIR
     MODELS_DIR = os.path.join(BASE_DIR, 'models')
     STATIC_DIR = os.path.join(BASE_DIR, 'static')
-    REPORTS_DIR = os.path.join(BASE_DIR, 'reports')
+    REPORTS_DIR = _reports_dir()
 
     # Email validation pattern
     EMAIL_PATTERN = os.environ.get('EMAIL_PATTERN', r'^[a-zA-Z0-9]+@staff\.msu\.ac\.zw$')

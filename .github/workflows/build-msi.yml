@@ -1,0 +1,53 @@
+name: Build MSI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'MSI version (e.g. 1.0.0); leave empty for 1.0.<run number>'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  msi:
+    name: WiX MSI
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install WiX Toolset v3.14
+        shell: pwsh
+        run: |
+          choco install wixtoolset -y --no-progress
+          $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14"
+          if (-not (Test-Path (Join-Path $wixPath 'bin\heat.exe'))) {
+            throw "WiX heat.exe not found under $wixPath"
+          }
+          "WIX=$wixPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build MSI
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ($env:INPUT_VERSION -and $env:INPUT_VERSION.Trim()) {
+            $ver = $env:INPUT_VERSION.Trim()
+          } else {
+            $ver = "1.0.$($env:GITHUB_RUN_NUMBER)"
+          }
+          Write-Host "Building MSI version $ver"
+          & (Join-Path $env:GITHUB_WORKSPACE 'installer\build_msi.ps1') -Version $ver
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msu-maintenance-msi
+          path: installer/dist/*.msi
+          if-no-files-found: error

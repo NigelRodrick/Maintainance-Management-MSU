@@ -10,6 +10,32 @@ Flask-based maintenance request and operations system for Midlands State Univers
 4. Open [http://127.0.0.1:5000](http://127.0.0.1:5000).  
    Default SQLite demo users use password from env `MSU_DEMO_PASSWORD` (see `.env.example`); default is `ChangeMeAfterClone123!` until you change it.
 
+## Windows installer (MSI)
+
+1. Install [WiX Toolset v3](https://github.com/wixtoolset/wix3/releases) (sets `%WIX%`, or install under `Program Files (x86)\WiX Toolset v3.14`).
+2. From the repo root, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build_msi.ps1 -Version 1.0.0
+```
+
+3. Output: `installer\dist\MSU_Maintenance_System_<version>.msi`.
+
+The MSI installs the app under **Program Files** and adds a Start Menu shortcut. **Python 3.10+ (64-bit)** must still be installed on the PC. The first run creates a virtual environment and SQLite data under `%LOCALAPPDATA%\MSUMaintenance` (writable location for non-admin users).
+
+## Full setup EXE (Python + MSI)
+
+To ship **one installer** that installs the official **Python 3.12 x64** runtime when it is not already registered (per-machine `HKLM\SOFTWARE\Python\PythonCore\3.12\InstallPath`), then installs the MSI:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build_bundle.ps1 -Version 1.0.0
+```
+
+- Downloads the Python installer to `installer\cache\` on first build (re-used after that).
+- Output: `installer\dist\MSU_Maintenance_System_Setup_<version>.exe`.
+
+If Python 3.12 is already installed for all users, the bundle **skips** the Python step and only runs the MSI. Users who rely only on the Microsoft Store Python or a non-standard layout may still get the bundled Python installer; that is usually harmless.
+
 ## Configuration
 
 Copy `.env.example` to `.env` and set `SECRET_KEY`, database variables, and optional `MSU_DEMO_PASSWORD`.

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX Toolset v3.11+ — build with ..\build_msi.ps1 (generates HarvestedFiles.wxs via Heat).
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+      Id="*"
+      Name="MSU Maintenance Management System"
+      Language="1033"
+      Version="$(var.ProductVersion)"
+      Manufacturer="Midlands State University"
+      UpgradeCode="8D3F1E2A-5C4B-4E9F-8A1D-2E3F4A5B6C7D">
+
+    <Package
+        InstallerVersion="200"
+        Compressed="yes"
+        InstallScope="perMachine"
+        InstallPrivileges="elevated"
+        Description="MSU Maintenance Management System"
+        Comments="Requires Python 3.10 or later (64-bit) on the computer." />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ALLUSERS" Value="1" />
+
+    <Feature Id="MainFeature" Title="Application" Level="1">
+      <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="StartMenuShortcutCmp" />
+    </Feature>
+
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="MSU Maintenance System" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="MSU Maintenance System" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="StartMenuShortcutCmp" Guid="A6B5C4D3-E2F1-4A5B-9C8D-7E6F5A4B3C2D">
+        <Shortcut
+            Id="StartMSUMaintenance"
+            Name="MSU Maintenance System"
+            Description="Start the maintenance web server (Python required)"
+            Target="[INSTALLFOLDER]run_app.bat" />
+        <RegistryValue
+            Root="HKLM"
+            Key="SOFTWARE\MSU\MaintenanceManagementSystem"
+            Name="StartMenuShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+        <RemoveFolder Id="CleanupAppProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

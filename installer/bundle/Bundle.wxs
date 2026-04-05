@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX Burn bundle: optional Python 3.12 (64-bit) + MSU Maintenance MSI.
+  Build: ..\build_bundle.ps1 (sets var.PythonInstallerPath and var.MsiPath).
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:bal="http://schemas.microsoft.com/wix/BalExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+  <Bundle Name="MSU Maintenance Management System"
+          Version="$(var.BundleVersion)"
+          Manufacturer="Midlands State University"
+          UpgradeCode="C4E8A1F2-9D3B-4E7C-A5F1-2B8D4E6C0A91"
+          AboutUrl="https://github.com/NigelRodrick/Maintainance-Management-MSU"
+          HelpUrl="https://github.com/NigelRodrick/Maintainance-Management-MSU">
+
+    <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
+      <bal:WixStandardBootstrapperApplication LicenseFile="license.rtf" ShowVersion="yes" />
+    </BootstrapperApplicationRef>
+
+    <!-- Python 3.12 x64 (all-users) writes default value under InstallPath -->
+    <util:RegistrySearch Id="SearchPython312"
+                         Root="HKLM"
+                         Key="SOFTWARE\Python\PythonCore\3.12\InstallPath"
+                         Variable="Python312InstallPath"
+                         Win64="yes"
+                         Result="value" />
+
+    <Chain>
+      <!-- Skip Python setup EXE if 3.12 is already registered -->
+      <ExePackage Id="Python312_x64"
+                  SourceFile="$(var.PythonInstallerPath)"
+                  Cache="keep"
+                  PerMachine="yes"
+                  Vital="yes"
+                  Compressed="yes"
+                  InstallCommand="/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_test=0 Include_doc=0 SimpleInstall=1"
+                  RepairCommand="/quiet Repair"
+                  DetectCondition="Python312InstallPath" />
+
+      <MsiPackage Id="MSUMaintenanceMsi"
+                  SourceFile="$(var.MsiPath)"
+                  Vital="yes"
+                  Compressed="yes"
+                  Visible="yes" />
+    </Chain>
+  </Bundle>
+</Wix>

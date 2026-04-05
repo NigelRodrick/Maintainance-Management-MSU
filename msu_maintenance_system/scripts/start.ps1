@@ -3,6 +3,19 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
+# Per-user venv + SQLite when installed under Program Files (MSI): not writable by normal users.
+if ($Root -match '(?i)[\\/]Program Files[\\/]') {
+    $dataRoot = Join-Path $env:LOCALAPPDATA 'MSUMaintenance'
+    New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
+    $env:MSU_INSTANCE_DIR = Join-Path $dataRoot 'instance'
+    New-Item -ItemType Directory -Force -Path $env:MSU_INSTANCE_DIR | Out-Null
+    $env:MSU_REPORTS_DIR = Join-Path $dataRoot 'reports'
+    New-Item -ItemType Directory -Force -Path $env:MSU_REPORTS_DIR | Out-Null
+    $venvDir = Join-Path $dataRoot 'venv'
+} else {
+    $venvDir = Join-Path $Root '.venv'
+}
+
 function Get-PythonExecutable {
     $skip = [regex]::Escape('WindowsApps')
     foreach ($name in @('python', 'python3')) {
@@ -19,7 +32,8 @@ function Get-PythonExecutable {
         "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
         "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
         "${env:ProgramFiles}\Python312\python.exe",
-        "${env:ProgramFiles}\Python311\python.exe"
+        "${env:ProgramFiles}\Python311\python.exe",
+        "${env:ProgramFiles}\Python310\python.exe"
     )) {
         if (Test-Path $path) { return $path }
     }
@@ -34,9 +48,8 @@ if (-not $py) {
 }
 
 Write-Host "Using: $py"
-$venvDir = Join-Path $Root '.venv'
 if (-not (Test-Path $venvDir)) {
-    Write-Host "Creating virtual environment in .venv ..."
+    Write-Host "Creating virtual environment..."
     & $py -m venv $venvDir
 }
 
@@ -59,5 +72,5 @@ $env:FLASK_ENV = 'development'
 if (-not $env:USE_SQLITE) { $env:USE_SQLITE = '1' }
 
 Write-Host "Starting server at http://127.0.0.1:5000  (Ctrl+C to stop)"
-Write-Host "Demo login: demo@staff.msu.ac.zw / TestPass123!"
+Write-Host "Demo users: demo@staff.msu.ac.zw and admin@staff.msu.ac.zw — password from MSU_DEMO_PASSWORD or default in .env.example"
 & $python (Join-Path $Root 'run.py')
