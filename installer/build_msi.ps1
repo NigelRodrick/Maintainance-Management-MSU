@@ -80,9 +80,10 @@ $msiOut = Join-Path $OutDir "MSU_Maintenance_System_$Version.msi"
 Write-Host "Compiling ($wixVersion)..."
 Push-Location $ObjDir
 try {
+    # Quote -d args so PowerShell does not pass a literal "$wixVersion" token to candle.exe
     & $candle -nologo `
-        -dProductVersion=$wixVersion `
-        -dHarvestSource=$StageRoot `
+        "-dProductVersion=$wixVersion" `
+        "-dHarvestSource=$StageRoot" `
         -arch x64 `
         $productWxs `
         $HeatOut
