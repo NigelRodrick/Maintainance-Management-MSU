@@ -1,0 +1,23 @@
+{
+  "name": "msu-maintenance-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capacitor shell: loads the deployed MSU Maintenance web app (Android + iOS)",
+  "scripts": {
+    "setup": "node scripts/setup.cjs",
+    "cap:sync": "cap sync",
+    "cap:open:android": "cap open android",
+    "cap:open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "open:ios": "cap open ios",
+    "postinstall": "node -e \"try{require('fs').mkdirSync('www',{recursive:true})}catch(e){}\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

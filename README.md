@@ -36,6 +36,15 @@ powershell -ExecutionPolicy Bypass -File installer\build_bundle.ps1 -Version 1.0
 
 If Python 3.12 is already installed for all users, the bundle **skips** the Python step and only runs the MSI. Users who rely only on the Microsoft Store Python or a non-standard layout may still get the bundled Python installer; that is usually harmless.
 
+## Mobile apps (Android + iOS)
+
+A **Capacitor** WebView shell lives in **`mobile/`**: set **`server.url`** in `mobile/capacitor.config.json` to your **HTTPS** site.
+
+- **One-click setup:** `cd mobile` → `npm run setup` (or `Setup-All.bat` on Windows).
+- **CI:** GitHub Actions build a **debug APK** and verify **iOS** project generation — see workflows `mobile-android.yml` and `mobile-ios.yml`.
+
+Full steps: **`mobile/README.md`**.
+
 ## Configuration
 
 Copy `.env.example` to `.env` and set `SECRET_KEY`, database variables, and optional `MSU_DEMO_PASSWORD`.

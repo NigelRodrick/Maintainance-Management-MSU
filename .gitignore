@@ -46,3 +46,8 @@ installer/bundle/Bundle.wixobj
 installer/cache/*.exe
 *.wixobj
 *.wixpdb
+
+# Capacitor mobile shell (optional native projects)
+mobile/node_modules/
+mobile/android/
+mobile/ios/

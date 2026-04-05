@@ -1,0 +1,17 @@
+{
+  "appId": "zw.ac.msu.maintenance",
+  "appName": "MSU Maintenance",
+  "webDir": "www",
+  "server": {
+    "url": "https://REPLACE-WITH-YOUR-DEPLOYED-FLASK-URL",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "scrollEnabled": true
+  }
+}

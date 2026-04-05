@@ -1,0 +1,38 @@
+name: Mobile iOS project sync
+
+# iOS native builds need signing; this job only verifies Capacitor can generate ios/ on macOS.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ios-cap-sync:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: npm install & cap add ios & sync
+        working-directory: mobile
+        run: |
+          npm install
+          if [ ! -d ios ]; then npx cap add ios; fi
+          npx cap sync
+
+      - name: Summary
+        run: echo "iOS project generated. Open Xcode locally with: cd mobile && npx cap open ios"
