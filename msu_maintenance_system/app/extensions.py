@@ -30,8 +30,9 @@ def init_extensions(app):
     redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
     cache = redis.from_url(redis_url, decode_responses=False)
     
-    # Initialize Celery
-    celery = Celery(app.name)
+    # Initialize Celery (Flask only — do not load celery.fixups.django; it is not
+    # used here and PyInstaller builds fail with ModuleNotFoundError otherwise.)
+    celery = Celery(app.name, fixups=())
     celery.conf.update(
         broker_url=os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
         result_backend=os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
