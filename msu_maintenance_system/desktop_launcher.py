@@ -55,14 +55,16 @@ def _find_listen_port(preferred: int, attempts: int = 40) -> int:
     )
 
 
-def _seed_sqlite_demo(app) -> None:
-    uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+def _seed_sqlite_demo(flask_app) -> None:
+    uri = flask_app.config.get("SQLALCHEMY_DATABASE_URI") or ""
     if not str(uri).startswith("sqlite:"):
         return
-    from app.extensions import db
-    import app.models  # noqa: F401
+    import importlib
 
-    with app.app_context():
+    from app.extensions import db
+    importlib.import_module("app.models")
+
+    with flask_app.app_context():
         db.create_all()
         from app.models import User
 
