@@ -38,5 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: msu-maintenance-windows-exe
-          path: dist/MSU_Maintenance.exe
+          path: |
+            dist/MSU_Maintenance.exe
+            dist/MSU_Dependency_Bootstrapper.exe
           if-no-files-found: error
