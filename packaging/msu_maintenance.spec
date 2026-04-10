@@ -58,6 +58,12 @@ block_cipher = None
 
 hidden = [
     "config",
+    "env_bootstrap",
+    "dotenv",
+    "pyodbc",
+    "sqlalchemy.dialects.mssql",
+    "sqlalchemy.dialects.mssql.pyodbc",
+    "sqlalchemy.dialects.mssql.base",
     "waitress",
     "engineio",
     "kombu",
@@ -91,12 +97,25 @@ except Exception:
 datas = [
     (os.path.join(APP, "templates"), "templates"),
     (os.path.join(APP, "static"), "static"),
+    # Shipped inside the EXE: copy to %LOCALAPPDATA%\MSUMaintenance\.env for SQL Server.
+    (os.path.join(ROOT, "packaging", "sql_connection.env.example"), "packaging"),
 ]
+
+binaries = []
+try:
+    from PyInstaller.utils.hooks import collect_all
+
+    _pyodbc_d, _pyodbc_b, _pyodbc_h = collect_all("pyodbc")
+    datas += _pyodbc_d
+    binaries += _pyodbc_b
+    hidden += _pyodbc_h
+except Exception:
+    pass
 
 a = Analysis(
     [os.path.join(APP, "desktop_launcher.py")],
     pathex=[APP],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hidden,
     hookspath=[],

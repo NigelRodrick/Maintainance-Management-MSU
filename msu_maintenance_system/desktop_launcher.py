@@ -25,6 +25,10 @@ def _prepare_environment() -> None:
     else:
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+    from env_bootstrap import load_msu_environment
+
+    load_msu_environment()
+
     local = os.environ.get("LOCALAPPDATA") or os.path.join(
         os.path.expanduser("~"), "AppData", "Local"
     )
@@ -231,6 +235,19 @@ def main() -> None:
     if port != preferred:
         print(f"Port {preferred} was in use; listening on {port}.", flush=True)
     print(f"MSU Maintenance — {url}  (close this window to stop)", flush=True)
+    if getattr(sys, "frozen", False):
+        tpl = os.path.join(sys._MEIPASS, "packaging", "sql_connection.env.example")
+        if os.path.isfile(tpl):
+            dest = os.path.join(
+                os.environ.get("LOCALAPPDATA", ""),
+                "MSUMaintenance",
+                ".env",
+            )
+            print(
+                f"SQL Server (pyodbc bundled): copy/edit template → {dest}  (source: {tpl}). "
+                "Install ODBC Driver 18 on this PC if needed.",
+                flush=True,
+            )
     serve(app, host="127.0.0.1", port=port, threads=4)
 
 

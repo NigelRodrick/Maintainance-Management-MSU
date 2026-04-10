@@ -32,7 +32,9 @@ jobs:
           pip install -r packaging/requirements-exe.txt pyinstaller
 
       - name: Build EXE
-        run: pyinstaller packaging/msu_maintenance.spec --noconfirm
+        run: |
+          pyinstaller packaging/msu_maintenance.spec --noconfirm
+          pyinstaller packaging/msu_dependency_bootstrap.spec --noconfirm
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4

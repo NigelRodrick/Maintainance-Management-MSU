@@ -1,4 +1,26 @@
 services:
+  # Optional local SQL Server (dev). Start with: docker compose up -d mssql
+  # Then run: msu_maintenance_system/scripts/setup_sql_server.ps1
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: msu-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      # Dev-only password; change for real deployments. Must meet SQL Server complexity rules.
+      MSSQL_SA_PASSWORD: "MsuSqlSetup!2026Strong"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"MsuSqlSetup!2026Strong\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"MsuSqlSetup!2026Strong\" -C -Q \"SELECT 1\" || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
   web:
     build:
       context: ./msu_maintenance_system

@@ -1,6 +1,10 @@
 import os
 from datetime import timedelta
 
+from env_bootstrap import load_msu_environment
+
+load_msu_environment()
+
 _BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 _INSTANCE_DIR = os.path.join(_BASE_DIR, 'instance')
 

@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 REQUIRED_IMPORTS = [
+    "dotenv",
     "flask",
     "flask_sqlalchemy",
     "flask_login",
